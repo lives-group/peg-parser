@@ -1,0 +1,60 @@
+#lang racket
+
+(require parser-tools/yacc
+         peg-parser/peg-syntax
+         peg-parser/lexer)
+
+;; converting a string token into a tree of
+;; characters concatenation
+
+(define (string->tree s)
+  (match s
+    ['() (Eps) ]
+    [(cons c '()) (Sym c)]
+    [(cons c s1) (Cat (Sym c)
+                       (string->tree s1))]))
+
+(define core-parser
+  (parser
+   (start peg)
+   (end EOF)
+   (tokens value-tokens op-tokens)
+   (src-pos)
+   (error
+    (lambda (a b c d e)
+      (begin (printf "parse error:\na = ~a\nb = ~a\nc = ~a\nd = ~a\ne = ~a\n" a b c d e)
+             (void))))
+   (grammar
+    (peg [(rules START expr) (PEG (mk-vars $1) $3)])
+    (rules [() '()]
+           [(rule rules) (cons $1 $2)])
+    (rule [(VAR ARROW expr SEMI) (cons $1 $3)])
+    (expr [(cat OR expr) (Alt $1 $3)]
+          [(cat) $1])
+    (cat [(cat term) (Cat $1 $2)]
+         [(term) $1])
+    (term [(prefixop term) ($1 $2)]
+          [(factor)   $1])
+    (prefixop [(NOT) (lambda (e) (Not e))]
+              [(AND) (lambda (e) (Not (Not e)))])
+    (factor [(factor postfix) ($2 $1)]
+            [(atom) $1])
+    (postfix [(STAR) (lambda (e) (Rep e))]
+             [(PLUS) (lambda (e) (Cat e (Rep e)))]
+             [(OPTION) (lambda (e) (Alt e (Eps) ))])
+    (char-list [(CHAR) (Sym (car (string->list $1)))]
+               [(CHAR COMMA char-list) (Alt $1 $3)])
+    (atom [(EPSILON) (Eps) ]
+          [(CHAR)    (Sym (car (string->list $1)))]
+          [(STRING)  (string->tree (string->list $1))]
+          [(LBRACK char-list RBRACK) $2]
+          [(ANY)     (Any)]
+          [(VAR)     (Var $1)]
+          [(LPAREN expr RPAREN) $2])
+    )))
+
+(define (parse ip)
+  (port-count-lines! ip)  
+  (core-parser (lambda () (next-token ip))))
+
+(provide parse)

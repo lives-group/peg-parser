@@ -1,0 +1,98 @@
+#lang typed/racket
+(require typed-racket-datatype)
+(require peg-parser/name-gen)
+(require peg-parser/peg-syntax)
+
+
+#;(define (str-parse peg str)
+    )
+
+
+(define stk : (Listof Natural) (list) )
+(define (mrk [f : Input-Port]) (set! stk (cons (file-position f) stk)))
+(define (rstr [f : Input-Port])
+   (cond
+       [(null? stk) (error "nothing to restore")]
+       [else (begin
+               (file-position f (car stk))  
+               (set! stk (cdr  stk)))]
+     )
+  )
+
+(define (mrk-pop)
+     (cond
+       [(null? stk) stk]
+       [else (set! stk (cdr  stk))]
+     )
+  )
+
+(define-datatype ParseTree  (TFail)
+                            (TEps)
+                            (TSym [c : Char])
+                            (TVar [var : String] [t : ParseTree])
+                            (TCat [tl : ParseTree] [tr : ParseTree])
+                            (LChoice [tl : ParseTree])
+                            (RChoice [tr : ParseTree])
+                            (TRep [xs : (Listof ParseTree)])      
+
+  )
+
+(define (mkRep [l :  ParseTree] [t : ParseTree]  )
+     (match l
+       [(TRep xs) (TRep (cons t xs) )]
+       [_ (error (string-append "Expecting a repetition tree given : " (~v l)) )]
+  )
+)
+
+
+(define (mkCat [l :  ParseTree] [r : ParseTree]  )  : ParseTree
+     (match (cons l r)
+       [(cons (TFail) _) (TFail)]
+       [(cons _ (TFail)) (TFail)]
+       [(cons x y) (TCat x y)]
+  )
+)
+
+(define (mkRChoice [l :  ParseTree] )  : ParseTree
+     (match l
+       [(TFail)  (TFail)]
+       [x (RChoice x)]
+  )
+)
+
+(define (pe-parse [g : PEG] [pe : PE] [f : Input-Port ] ) : ParseTree  
+        (match pe
+             [(Eps)     (TEps)]
+             [(Any)     (let [(ch1 : (Union Char EOF) (read-char f))]
+                             (cond [(eof-object? ch1) (TFail)]
+                                   [else (TSym ch1) ]))]
+             [(Sym ch) (let [(ch1 : (Union Char EOF) (read-char f))]
+                             (cond [(eof-object? ch1) (TFail)]
+                                   [(char=? ch ch1)  (TSym ch1)]
+                                   [else (TFail)]))]
+             [(Var s)  (let ([r : ParseTree (pe-parse g (nonTerminal g s) f)])
+                               (match r
+                                  [(TFail) (TFail)]
+                                  [x       (TVar s x)])
+                               )]
+             [(Cat e d) (let [(x : ParseTree (pe-parse g e f))]
+                          (match x
+                            [(TFail) (TFail)]
+                            [x  (mkCat x (pe-parse g d f))]
+                          ))]
+             [(Alt e d)  (begin (mrk f)
+                                (match (pe-parse g e f)
+                                       [(TFail) (begin (rstr f) (mkRChoice (pe-parse g d f)))]
+                                       [x (begin (mrk-pop) (LChoice x)) ]))]
+             [(Rep e)   (begin (mrk f)
+                               (match (pe-parse g e f)
+                                      [(TFail) (begin (rstr f)  (TRep (list)) )]
+                                      [x      (begin  (mrk-pop)
+                                                      (mkRep (pe-parse g pe f) x))]))]
+         )
+      )
+
+(define (peg-parse [g : PEG] [f : Input-Port ] ) : ParseTree  
+        (pe-parse g (PEG-start g) f)
+ )
+

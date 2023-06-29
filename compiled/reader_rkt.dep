@@ -1,0 +1,1 @@
+("8.8" ta6le ("b6fe1816bb53ce38cc6d642977bfda7e1a846771" . "c4aba617c8f0eec35436c2c1637c452763bfa248") (collects #"peg-parser" #"grammar.rkt") (collects #"peg-parser" #"peg-syntax.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt"))

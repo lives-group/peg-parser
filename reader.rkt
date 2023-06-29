@@ -1,0 +1,39 @@
+#lang racket
+
+(require peg-parser/grammar
+         peg-parser/peg-syntax)
+
+
+(provide (rename-out [peg-read read]
+                     [peg-read-syntax read-syntax]))
+
+(define (peg-read in)
+  (syntax->datum
+   (peg-read-syntax #f in)))
+
+(define (peg-read-syntax path port)
+  (define grammar (parse port))
+  (let ([types '()])
+    ;(if #f
+        #;(error "The grammar isn't well-typed! It can loop on some inputs.")
+        (datum->syntax
+         #f
+         `(module peg-parser racket
+            (provide parser
+                     ;pretty
+                     (all-from-out peg-parser/peg-syntax))
+
+            (require peg-parser/peg-recognizer
+                     peg-parser/peg-syntax
+                     )
+
+            (define (parser s)
+              (peg-parse ,grammar (open-input-string s)))
+            (define (list)
+              (peg->string ,grammar))
+
+            ))
+
+    ;)
+
+  ))
