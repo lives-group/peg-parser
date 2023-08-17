@@ -1,11 +1,20 @@
 #lang typed/racket
 (require typed-racket-datatype)
-(require peg-parser/name-gen)
-(require peg-parser/peg-syntax)
+(require "peg-syntax-alt.rkt")
 
 
-#;(define (str-parse peg str)
-    )
+(provide
+        ParseTree
+        (struct-out TSym)
+        (struct-out TEps)
+        (struct-out TVar)
+        (struct-out TCat)
+        (struct-out LChoice)
+        (struct-out RChoice)
+        (struct-out TRep)
+        pe-parse
+        peg-parse
+       )
 
 
 (define stk : (Listof Natural) (list) )
@@ -62,29 +71,29 @@
 
 (define (pe-parse [g : PEG] [pe : PE] [f : Input-Port ] ) : ParseTree  
         (match pe
-             [(Eps)     (TEps)]
-             [(Any)     (let [(ch1 : (Union Char EOF) (read-char f))]
+             [(Eps _)     (TEps)]
+             [(Any _)     (let [(ch1 : (Union Char EOF) (read-char f))]
                              (cond [(eof-object? ch1) (TFail)]
                                    [else (TSym ch1) ]))]
-             [(Sym ch) (let [(ch1 : (Union Char EOF) (read-char f))]
-                             (cond [(eof-object? ch1) (TFail)]
+             [(Sym _ ch) (let [(ch1 : (Union Char EOF) (read-char f))]
+                               (cond [(eof-object? ch1) (TFail)]
                                    [(char=? ch ch1)  (TSym ch1)]
                                    [else (TFail)]))]
-             [(Var s)  (let ([r : ParseTree (pe-parse g (nonTerminal g s) f)])
+             [(Var _ s)  (let ([r : ParseTree (pe-parse g (nonTerminal g s) f)])
                                (match r
                                   [(TFail) (TFail)]
                                   [x       (TVar s x)])
                                )]
-             [(Cat e d) (let [(x : ParseTree (pe-parse g e f))]
-                          (match x
+             [(Cat _ e d) (let [(x : ParseTree (pe-parse g e f))]
+                            (match x
                             [(TFail) (TFail)]
                             [x  (mkCat x (pe-parse g d f))]
                           ))]
-             [(Alt e d)  (begin (mrk f)
+             [(Alt _ e d)  (begin (mrk f)
                                 (match (pe-parse g e f)
                                        [(TFail) (begin (rstr f) (mkRChoice (pe-parse g d f)))]
                                        [x (begin (mrk-pop) (LChoice x)) ]))]
-             [(Rep e)   (begin (mrk f)
+             [(Rep _ e)   (begin (mrk f)
                                (match (pe-parse g e f)
                                       [(TFail) (begin (rstr f)  (TRep (list)) )]
                                       [x      (begin  (mrk-pop)

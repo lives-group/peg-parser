@@ -1,8 +1,8 @@
 #lang racket
 
-(require peg-parser/grammar
-         peg-parser/peg-syntax)
-
+(require "grammar.rkt"
+         "peg-ast.rkt"
+         "peg-wf.rkt")
 
 (provide (rename-out [peg-read read]
                      [peg-read-syntax read-syntax]))
@@ -13,27 +13,28 @@
 
 (define (peg-read-syntax path port)
   (define grammar (parse port))
-  (let ([types '()])
-    ;(if #f
-        #;(error "The grammar isn't well-typed! It can loop on some inputs.")
+  (let ([types (type-infer grammar)])
+    (if (not (cdr types))
+        (error "The grammar isn't well-typed! It can loop on some inputs.")
         (datum->syntax
          #f
          `(module peg-parser racket
-            (provide parser
-                     ;pretty
-                     (all-from-out peg-parser/peg-syntax))
+            (provide run-parse
+                     run-non-verbose-parse
+                     list
+                     (all-from-out peg-parser/peg-ast))
 
             (require peg-parser/peg-recognizer
-                     peg-parser/peg-syntax
+                     peg-parser/peg-ast
                      )
-
-            (define (parser s)
-              (peg-parse ,grammar (open-input-string s)))
+            (define grm ,grammar)
+            (define (run-parse s)
+              (peg-parse grm (open-input-string s)))
+            (define (run-non-verbose-parse s)
+              (simplified-peg-parse grm (open-input-string s)))
             (define (list)
-              (peg->string ,grammar))
+              (peg->string grm))
 
             ))
-
-    ;)
-
+    )
   ))

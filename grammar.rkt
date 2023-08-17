@@ -1,18 +1,27 @@
 #lang racket
 
 (require parser-tools/yacc
-         peg-parser/peg-syntax
-         peg-parser/lexer)
+         parser-tools/lex
+         "lexer.rkt"
+         "peg-ast.rkt")
 
 ;; converting a string token into a tree of
 ;; characters concatenation
 
-(define (string->tree s)
+(define (string->tree p s)
   (match s
     ['() (Eps) ]
-    [(cons c '()) (Sym c)]
-    [(cons c s1) (Cat (Sym c)
-                       (string->tree s1))]))
+    [(cons c '()) (Sym (src p) c)]
+    [(cons c s1) (Cat (Sym (src p) c)
+                       (string->tree (position (position-line p) (+ 1 (position-col p) )) s1))]))
+
+(define (src pos)
+     (SrcLoc (position-line pos) (position-col pos))
+  )
+
+(define (chr->sym pos s)
+     (Sym (src pos) (car (string->list s)))
+  )
 
 (define core-parser
   (parser
@@ -29,27 +38,27 @@
     (rules [() '()]
            [(rule rules) (cons $1 $2)])
     (rule [(VAR ARROW expr SEMI) (cons $1 $3)])
-    (expr [(cat OR expr) (Alt $1 $3)]
+    (expr [(cat OR expr) (Alt (src $2-start-pos) $1 $3)]
           [(cat) $1])
-    (cat [(cat term) (Cat $1 $2)]
+    (cat [(cat term) (Cat (src $1-start-pos) $1 $2)]
          [(term) $1])
     (term [(prefixop term) ($1 $2)]
           [(factor)   $1])
-    (prefixop [(NOT) (lambda (e) (Not e))]
-              [(AND) (lambda (e) (Not (Not e)))])
+    (prefixop [(NOT) (lambda (e) (Not (src $1-start-pos) e))]
+              [(AND) (lambda (e) (Not (src $1-start-pos) (Not (src $1-start-pos) e)))])
     (factor [(factor postfix) ($2 $1)]
             [(atom) $1])
-    (postfix [(STAR) (lambda (e) (Rep e))]
-             [(PLUS) (lambda (e) (Cat e (Rep e)))]
-             [(OPTION) (lambda (e) (Alt e (Eps) ))])
-    (char-list [(CHAR) (Sym (car (string->list $1)))]
-               [(CHAR COMMA char-list) (Alt $1 $3)])
-    (atom [(EPSILON) (Eps) ]
-          [(CHAR)    (Sym (car (string->list $1)))]
-          [(STRING)  (string->tree (string->list $1))]
+    (postfix [(STAR) (lambda (e) (Rep ((src $1-start-pos)) e))]
+             [(PLUS) (lambda (e) (Cat (src $1-start-pos) e (Rep (src $1-start-pos) e)))]
+             [(OPTION) (lambda (e) (Alt (src $1-start-pos) e (Eps (src $1-start-pos)) ))])
+    (char-list [(CHAR) (chr->sym $1-start-pos  $1)]
+               [(CHAR COMMA char-list) (Alt (src $2-start-pos) (chr->sym $1-start-pos $1) $3)])
+    (atom [(EPSILON) (Eps (src $1-start-pos)) ]
+          [(CHAR)    (chr->sym $1-start-pos $1)]
+          [(STRING)  (string->tree (string->list $1-start-pos $1))]
           [(LBRACK char-list RBRACK) $2]
-          [(ANY)     (Any)]
-          [(VAR)     (Var $1)]
+          [(ANY)     (Any (src $1-start-pos) )]
+          [(VAR)     (Var (src $1-start-pos) $1)]
           [(LPAREN expr RPAREN) $2])
     )))
 

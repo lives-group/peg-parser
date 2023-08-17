@@ -1,6 +1,7 @@
 #lang typed/racket
 
 (provide new-name
+         new-name-with
          start-gen)
 
 (define count : Natural 0)
@@ -21,4 +22,10 @@
     (set! count n)
     (set! prefix prfx)
     (set! forbiden (list->set l))
+  )
+
+(: new-name-with (All (a) (-> (-> Natural a) a)))
+(define (new-name-with f)
+     (let ([ s : Natural count])
+          (begin (set! count (+ count 1)) (f s)))
   )
