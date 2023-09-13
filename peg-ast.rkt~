@@ -40,7 +40,8 @@
          ; Pretty print 
          pe->string
          peg->string
-         pprint-pe
+         pe->err-string
+         pprint-pe 
          pprint-peg
          )
 
@@ -73,7 +74,7 @@
 
 ;(struct rhs ( [e : PE] [sem : (-> Any* Any)] ) #:prefab)
 
-(define-type PE (Union Eps Any Sym Var Cat Alt Not Rep))
+(define-type PE (Union Eps Any Sym Rng Var Silent Cat Alt Not Rep))
 
 
 ;(struct Eps  ()                  #:prefab)
@@ -89,7 +90,9 @@
 (struct Eps PESyn ()                  #:prefab)
 (struct Any PESyn ()                  #:prefab)
 (struct Sym PESyn ([c : Char])        #:prefab)
-(struct Var PESyn ([s : String])      #:prefab)
+(struct Rng PESyn ([s : Char] [e : Char])     #:prefab)
+(struct Var PESyn ([r : Raised] [s : String]) #:prefab)
+(struct Silent PESyn ([e : PE]) #:prefab)
 (struct Cat PESyn ([l : PE] [r : PE]) #:prefab)
 (struct Alt PESyn ([l : PE] [r : PE]) #:prefab)
 (struct Not PESyn ([p : PE])          #:prefab)
@@ -111,7 +114,8 @@
      [(cons (Eps k)     (Eps k))        #t]
      [(cons (Any k)     (Any k))        #t]
      [(cons (Sym k c)   (Sym k1 c1))    (char=? c c1)]
-     [(cons (Var k s1)  (Var k s2))     (string=? s1 s2)]
+     [(cons (Rng _ s e) (Rng _ s e))    #t]  
+     [(cons (Var k r s1)  (Var r k s2))     (string=? s1 s2)]
      [(cons (Cat k l r) (Cat k l2 r2))  (and (pe=? l l2) (pe=? r r2))]
      [(cons (Alt k l r) (Alt k l2 r2))  (and (pe=? l l2) (pe=? r r2))]
      [(cons (Not k l)   (Not k l2))     (pe=? l l2)]
@@ -127,7 +131,7 @@
         [(Any k)            #f]
         [(Eps k)            #t]
         [(Sym k c)          #f]
-        [(Var k s)        (pe-null? v (hash-ref v s))]
+        [(Var k _ s)      (pe-null? v (hash-ref v s))]
         [(Cat k p1 p2)    (let ([r : Boolean (pe-null? v p1)] )
                               (cond [r (pe-null? v p2)] [else r]))]
         [(Alt k p1 p2)     (let ([r : Boolean (pe-null? v p1)] )
@@ -143,7 +147,7 @@
          [(Any k)          null]
          [(Eps k)          null]
          [(Sym k c)        (list c)]
-         [(Var k s)        null]
+         [(Var k _ s)      null]
          [(Cat k p1 p2)    (set-union (ep-alphabet p1) (ep-alphabet p2))]
          [(Alt k p1 p2)    (set-union (ep-alphabet p1) (ep-alphabet p2))]
          [(Rep k p)        (ep-alphabet p)]
@@ -261,6 +265,22 @@
             (list (pe-prec->string 0 (PEG-start e)))
     )
 )
+
+(define (srcloc->string [s : SrcLoc])
+     (string-append "(" (number->string (SrcLoc-l s)) ", " (number->string (SrcLoc-c s)) ")")
+  )
+
+(define (pe->err-string [e : PE]) : String
+      (match e
+        [(Any k)        (string-append "error " (srcloc->string k) ": " (pe->string e))]
+        [(Eps k)        (string-append "error " (srcloc->string k) ": " (pe->string e))]
+        [(Sym k _)      (string-append "error " (srcloc->string k) ": " (pe->string e))]
+        [(Cat k _ _)    (string-append "error " (srcloc->string k) ": " (pe->string e))]
+        [(Alt k _ _)    (string-append "error " (srcloc->string k) ": " (pe->string e))]
+        [(Not k _)      (string-append "error " (srcloc->string k) ": " (pe->string e))]
+        [(Rep k _)      (string-append "error " (srcloc->string k) ": " (pe->string e))]
+     )
+  )
 
 (define (pprint-pe [e : PE])
    (display (pe-prec->string 0 e))

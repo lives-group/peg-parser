@@ -1,5 +1,8 @@
 #lang peg-parser
 
-A <-- 'a' A / 'a' ;
+A <--  'a' A 'b'/ 'a' 'b' ;
 
 start: A
+
+
+  

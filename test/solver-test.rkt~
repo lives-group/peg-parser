@@ -1,40 +1,33 @@
-;#lang typed/racket
-#lang typed/racket/no-check
+#lang typed/racket
+;#lang typed/racket/no-check
 
 (require "peg-ast.rkt"
          "tysolver.rkt")
-
-(provide  peg->constraints
-          infer-types
-          (all-from-out "tysolver.rkt" ))
 
 (define (constraints-of [p : PE] [v : Ty] [x : Ctx]) : Ctx
      (match p
         [(Any _)        (dbg-const-constraint x v #f null p)]
         [(Eps _)        (dbg-const-constraint x v #t null p)]
         [(Sym _ c)      (dbg-const-constraint x v #f null p)]
-        [(Rng _ _ _)    (dbg-const-constraint x v #f null p)]
-        [(Annot _ _ p1)  (constraints-of p1 v x)]
-        [(Bind _ _ p1)   (constraints-of p1 v x)]
-        [(Var _ _ s)    (let ([t : Ty (ctx-getNt x s) ])
+        [(Var _ s)      (let ([t : Ty (ctx-getNt x s) ])
                              (dbg-var-constraint x s v t p) ) ]
         [(Cat _ p1 p2)  (let* ([cv1 : (Pair Ty Ctx) (nwTyVar x)]
                                [cv2 : (Pair Ty Ctx) (nwTyVar (cdr cv1))]
                                [c1 : Ctx (constraints-of p1 (car cv1) (cdr cv2))]
                                [c2 : Ctx (constraints-of p2 (car cv2) c1)])
-                              (dbg-cat-constraint c2 v (car cv1) (car cv2) p) )]
+                              (mk-cat-constraint c2 v (car cv1) (car cv2)) )]
        
         [(Alt _ p1 p2)  (let* ([cv1 : (Pair Ty Ctx) (nwTyVar x)]
                                [cv2 : (Pair Ty Ctx) (nwTyVar (cdr cv1))]
                                [c1 : Ctx (constraints-of p1 (car cv1) (cdr cv2))]
                                [c2 : Ctx (constraints-of p2 (car cv2) c1)])
-                               (dbg-alt-constraint c2 v (car cv1) (car cv2) p) )]
+                               (mk-cat-constraint c2 v (car cv1) (car cv2)) )]
         [(Rep _ p)      (let* ([v1 : (Pairof Ty Ctx) (nwTyNulVar #f x)]
                                [c1 : Ctx (constraints-of p (car v1) (cdr v1))])
-                              (dbg-null-same-headset-constraint c1 v (car v1) p) )]
+                              (mk-null-same-headset-constraint c1 v (car v1)) )]
         [(Not _ p)      (let* ([v1 : (Pairof Ty Ctx) (nwTyVar x)]
                                [c1 : Ctx    (constraints-of p (car v1) (cdr v1))])
-                              (dbg-null-same-headset-constraint c1 v (car v1) p))]
+                              (mk-null-same-headset-constraint c1 v (car v1)))]
      )
   )
 
@@ -48,11 +41,43 @@
   )
 )
 
+
 (define (constraints-of-rules [xs : (Listof (Pair String PE))] [x : Ctx]) : Ctx
           (foldr (lambda ([r : (Pairof String PE)] [x1 : Ctx])
                          (constraints-of (cdr r) (ctx-getNt x1 (car r)) x1)) x xs)      
  )
 
-(define (infer-types [p : PEG]) : Ctx
-     (solve-ctx (peg->constraints p))
-  )
+(define L0 : SrcLoc (SrcLoc 0 0))
+
+(define pegtest1 : PEG
+  (PEG  (make-immutable-hash
+         (list (cons "A" (Rep L0 (Sym L0 #\a) ) )
+               (cons "B" (Cat L0 (Rep L0 (Sym L0 #\a) ) (Var L0 "B")))
+               )
+         )
+         (Cat L0 (Var L0 "A") (Var L0 "B")) ))
+
+(define pegtest2 : PEG
+  (PEG  (make-immutable-hash)
+         (Rep L0 (Sym L0 #\a) ) )
+)
+
+(define pegtest3 : PEG
+  (PEG  (make-immutable-hash
+         (list (cons "B" (Cat L0  (Eps L0) (Var L0 "B")))
+               )
+         )
+         (Var L0 "B") ) )
+
+(define pegtest4 : PEG
+  (PEG  (make-immutable-hash)
+         (Rep L0 (Eps L0)) )
+ )
+
+(define pegtest5 : PEG
+  (PEG  (make-immutable-hash
+         (list (cons "A" (Rep L0 (Sym L0 #\a) ) )
+               (cons "B" (Rep L0 (Var L0 "A") ))
+               )
+         )
+         (Var L0 "B")) )

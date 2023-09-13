@@ -1,13 +1,12 @@
 #lang peg-parser
 
-Exp  <--  Term Term1;
-Term <-- Number Term1;
+Exp  <-- ^Term ( ('+' / '-') ^Term)*;
 
-Term1 <-- '+' Term Term1 
-        / '-' Term Term1
-        /  epsilon;
+Term  <--  ^Factor ( ('*' / '/') ^Factor )*;
 
-Number <-- Digit+;
-Digit  <-- ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+Factor <-- ^Number
+         / '(' Exp ')';
+
+Number <-- ~(['0'-'9'] +) ;
 
 start: Exp
