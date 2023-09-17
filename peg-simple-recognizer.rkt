@@ -6,6 +6,7 @@
 
 (provide
         PegTree
+        (struct-out PTFail)
         (struct-out PTSym)
         (struct-out PTStr)
         (struct-out PTVar)
@@ -32,7 +33,7 @@
      )
   )
 
-(define-type PegTree (Union Eps Any Sym Rng Annot Bind Var Cat Alt Not Rep))
+(define-type PegTree (Union PTEps PTSym PTVar PTStr PTList))
 
 (struct  PTFail () #:transparent)
 (struct  PTSym ([c : Char]) #:transparent)
@@ -55,6 +56,7 @@
      (match (cons l r)
        [(cons (PTFail) _) (PTFail)]
        [(cons _ (PTFail)) (PTFail)]
+       [(cons (PTList xs) (PTList ys)) (PTList (append xs ys))]
        [(cons (PTList '()) y) (PTList (list y))]
        [(cons y (PTList '())) (PTList (list y))]
        [(cons x (PTList xs)) (PTList (cons x xs))]
@@ -87,7 +89,7 @@
                                     [_ (PTList '())] )]
              [(Annot _ 'Flat e) (match (spe-parse g e f)
                                     [(PTFail) (PTFail)]
-                                    [x (flatten x)] )]
+                                    [x (PTStr (flatten x))] )]
              [(Cat _ e d) (let ([te (spe-parse g e f)])
                                (cond [(not (PTFail? te)) (mk-pcat te (spe-parse g d f))]
                                      [else (PTFail)]))]

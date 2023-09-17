@@ -13,6 +13,9 @@
        STAR
        NOT
        SEMI
+       DASH
+       TIL
+       UP
        EPSILON
        ARROW
        START
@@ -40,6 +43,9 @@
    ["<--" (token-ARROW)]
    ["!" (token-NOT)]
    [";" (token-SEMI)]
+   ["-" (token-DASH)]
+   ["~" (token-TIL)]
+   ["^" (token-UP)]
    ["epsilon" (token-EPSILON)]
    ["start:" (token-START)]
    [#\( (token-LPAREN)]

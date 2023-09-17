@@ -1,12 +1,14 @@
 #lang peg-parser
 
-Exp  <-- ^Term ( ('+' / '-') ^Term)*;
+Exp  <-- -W Term (-W ('+' / '-') -W Term)*;
 
-Term  <--  ^Factor ( ('*' / '/') ^Factor )*;
+Term  <--  ^Factor (-W ('*' / '/') -W ^Factor )*;
 
 Factor <-- ^Number
-         / '(' Exp ')';
+         /-'(' -W Exp  -W-')';
 
 Number <-- ~(['0'-'9'] +) ;
+
+W <-- -[' ','\n','\t']*;
 
 start: Exp
