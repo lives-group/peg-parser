@@ -1,19 +1,17 @@
-#lang typed/racket
-(require typed-racket-datatype)
+;#lang typed/racket
+#lang typed/racket/no-check
+
 (require "peg-ast.rkt")
 
 
 (provide
-        ParseTree
-        (struct-out TSym)
-        (struct-out TEps)
-        (struct-out TVar)
-        (struct-out TCat)
-        (struct-out LChoice)
-        (struct-out RChoice)
-        (struct-out TRep)
+        PegTree
+        (struct-out PTFail)
+        (struct-out PTSym)
+        (struct-out PTStr)
+        (struct-out PTVar)
+        (struct-out PTList)
         peg-parse
-        simplified-peg-parse
        )
 
 
@@ -35,97 +33,88 @@
      )
   )
 
-(define-datatype ParseTree  (TFail)
-                            (TEps)
-                            (TSym [c : Char])
-                            (TStr [s : (Listof Char)])
-                            (TVar [var : String] [t : ParseTree])
-                            (TCat [tl : ParseTree] [tr : ParseTree])
-                            (LChoice [tl : ParseTree])
-                            (RChoice [tr : ParseTree])
-                            (TRep [xs : (Listof ParseTree)])
-                            (TList [xs : (Listof ParseTree)])
+(define-type PegTree (Union PTEps PTSym PTVar PTStr PTList))
 
-  )
+(struct  PTFail () #:transparent)
+(struct  PTSym ([c : Char]) #:transparent)
+(struct  PTStr ([s : (Listof Char)]) #:transparent)
+(struct  PTVar ([var : String] [t : PegTree]) #:transparent)
+(struct  PTList ([xs : (Listof PegTree)]) #:transparent)
+                           
 
 
-(define (mkRep [l :  ParseTree] [t : ParseTree]  )
-     (match l
-       [(TRep xs) (TRep (cons t xs) )]
-       [_ (error (string-append "Expecting a repetition tree given : " (~v l)) )]
-  )
+(define (flatten [x : PegTree] ) : String
+      (match x
+        [(PTSym  c) (string c)]
+        [(PTStr s) s]
+        [(PTVar _ t) (flatten t)]
+        [(PTList xs) (foldr string-append "" (map flatten xs))]
+        )
 )
 
-
-(define (mkCat [l :  ParseTree] [r : ParseTree] ) : ParseTree
+(define (mk-pcat [l :  PegTree] [r : PegTree] ) : PegTree
      (match (cons l r)
-       [(cons (TFail) _) (TFail)]
-       [(cons _ (TFail)) (TFail)]
-       [(cons x (TEps)) x]
-       [(cons (TEps) y) y]
-       [(cons (TSym c)  (TSym c1)) (TStr (list c c1))]
-       [(cons (TStr xs) (TSym c1)) (TStr (append xs (list c1)))]
-       [(cons (TSym c)  (TStr xs)) (TStr (cons c xs) )]
-       [(cons (TEps) y) y]
-       [(cons x (TList xs)) (TList (cons x xs))]
-       [(cons (TList xs) x) (TList (list-append xs (list x)))]
-       [(cons x y) (TCat x y)]
+       [(cons (PTFail) _) (PTFail)]
+       [(cons _ (PTFail)) (PTFail)]
+       [(cons (PTList xs) (PTList ys)) (PTList (append xs ys))]
+       [(cons (PTList '()) y) (PTList (list y))]
+       [(cons y (PTList '())) (PTList (list y))]
+       [(cons x (PTList xs)) (PTList (cons x xs))]
+       [(cons (PTList xs) x) (PTList (append xs (list x)))]
+       [(cons x y) (PTList (list x y))]
   )
 )
 
-(define (mkRChoice [l :  ParseTree] )  : ParseTree
-     (match l
-       [(TFail)  (TFail)]
-       [x (RChoice x)]
-  )
-)
-
-(define (pe-parse [verb : Boolean] [g : PEG] [pe : PE] [f : Input-Port ] ) : ParseTree  
+(define (spe-parse [g : PEG] [pe : PE] [f : Input-Port ] ) : PegTree  
         (match pe
-             [(Eps _)     (if verb (TEps) (TList (list)))]
+             [(Eps _)     (PTList (list))]
              [(Any _)     (let [(ch1 : (Union Char EOF) (read-char f))]
-                             (cond [(eof-object? ch1) (TFail)]
-                                   [else (TSym ch1) ]))]
+                               (cond [(eof-object? ch1) (PTFail)]
+                                     [else (PTSym ch1) ]))]
              [(Sym _ ch) (let [(ch1 : (Union Char EOF) (read-char f))]
-                               (cond [(eof-object? ch1) (TFail)]
-                                   [(char=? ch ch1)  (TSym ch1)]
-                                   [else (TFail)]))]
-             [(Var _ r s) (let ([r : ParseTree (pe-parse verb g (nonTerminal g s) f)])
+                               (cond [(eof-object? ch1) (PTFail)]
+                                   [(char=? ch ch1)  (PTSym ch1)]
+                                   [else (PTFail)]))]
+             [(Rng _ s e) (let [(ch1 : (Union Char EOF) (read-char f))]
+                               (cond [(eof-object? ch1) (PTFail)]
+                                     [(and (char>? ch1 s) (char<? ch1 e))  (PTSym ch1)]
+                                     [else (PTFail)]))]
+             [(Var _ ig s) (let ([r : PegTree (spe-parse g (nonTerminal g s) f)])
                                (match r
-                                  [(TFail) (TFail)]
-                                  [x       (if r x (TVar s x))])
+                                  [(PTFail) (PTFail)]
+                                  [x       (if ig x (PTVar s x))])
                                )]
-             [(Cat _ e d) (mkCat (pe-parse verb g e f) (pe-parse verb g d f))]
+             [(Annot _ 'Silent e) (match (spe-parse g e f)
+                                    [(PTFail) (PTFail)]
+                                    [_ (PTList '())] )]
+             [(Annot _ 'Flat e) (match (spe-parse g e f)
+                                    [(PTFail) (PTFail)]
+                                    [x (PTStr (flatten x))] )]
+             [(Cat _ e d) (let ([te (spe-parse g e f)])
+                               (cond [(not (PTFail? te)) (mk-pcat te (spe-parse g d f))]
+                                     [else (PTFail)]))]
                           
              [(Alt _ e d)  (begin (mrk f)
-                                (match (pe-parse verb g e f)
-                                       [(TFail) (begin (rstr f)
-                                                       (if verb
-                                                           (mkRChoice (pe-parse verb g d f))
-                                                           (pe-parse verb g d f)))]
+                                (match (spe-parse g e f)
+                                       [(PTFail) (begin (rstr f)
+                                                        (spe-parse g d f))]
                                        [x (begin (mrk-pop)
-                                                 (if verb
-                                                     (LChoice x)
-                                                     x)) ]))]
+                                                  x) ]))]
              [(Rep _ e)   (begin (mrk f)
-                                 (match (pe-parse verb g e f)
-                                      [(TFail) (begin (rstr f)  (TRep (list)) )]
-                                      [x       (begin  (mrk-pop)
-                                                       (mkRep (pe-parse verb g pe f) x))]))]
+                                 (match (spe-parse g e f)
+                                      [(PTFail) (begin (rstr f)  (PTList (list)) )]
+                                      [x        (begin (mrk-pop)
+                                                       (mk-pcat x (spe-parse g pe f)))]))]
              [(Not _ e)   (begin (mrk f)
-                                 (match (pe-parse verb g e f)
-                                      [(TFail) (begin (rstr f)  (TEps) )]
-                                      [x       (begin  (rstr f)
-                                                       (TFail))]))]
+                                 (match (spe-parse g e f)
+                                      [(PTFail) (begin (rstr f)  (PTList '()) )]
+                                      [x        (begin (rstr f)
+                                                       (PTFail))]))]
          )
       )
 
-(define (peg-parse [g : PEG] [f : Input-Port ] ) : ParseTree  
-        (pe-parse true g (PEG-start g) f)
- )
-
-(define (simplified-peg-parse [g : PEG] [f : Input-Port ] ) : ParseTree  
-        (pe-parse false g (PEG-start g) f)
+(define (peg-parse [g : PEG] [f : Input-Port ] ) : PegTree  
+        (spe-parse g (PEG-start g) f)
  )
 
 

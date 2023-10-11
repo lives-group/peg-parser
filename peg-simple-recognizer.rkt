@@ -12,6 +12,7 @@
         (struct-out PTVar)
         (struct-out PTList)
         peg-parse
+        peg-parse-from
        )
 
 
@@ -33,7 +34,7 @@
      )
   )
 
-(define-type PegTree (Union PTEps PTSym PTVar PTStr PTList))
+(define-type PegTree (Union PTFail PTSym PTVar PTStr PTList))
 
 (struct  PTFail () #:transparent)
 (struct  PTSym ([c : Char]) #:transparent)
@@ -117,4 +118,6 @@
         (spe-parse g (PEG-start g) f)
  )
 
-
+(define (peg-parse-from [g : PEG] [start : String] [f : Input-Port ] ) : PegTree  
+        (spe-parse g (nonTerminal g start) f)
+ )

@@ -58,7 +58,14 @@
     (token-VAR lexeme)]
    [(:seq #\' any-char #\') (token-CHAR (let* ([s lexeme]
                                                [n (string-length s)])
-                                          (substring s 1 (- n 1))))]))
-
+                                          (substring s 1 (- n 1))))]
+   [(:seq #\' #\\ #\n #\')  (token-CHAR "\n")]
+   [(:seq #\' #\\ #\t #\')  (token-CHAR "\t")]
+   [(:seq #\' #\\ #\r #\')  (token-CHAR "\r")]
+   [(:seq #\' #\\ #\b #\')  (token-CHAR "\b")]
+   [(:seq #\' #\\ (:+ numeric) #\')  (token-CHAR  (let* ([s lexeme]
+                                                         [n (string-length s)])
+                                                         (integer->char (string->number (substring s 2 (- n 1))))))]
+))
 
 (provide value-tokens op-tokens next-token)

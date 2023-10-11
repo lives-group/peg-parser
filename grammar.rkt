@@ -12,8 +12,9 @@
   (match s
     ['() (Eps) ]
     [(cons c '()) (Sym (src p) c)]
-    [(cons c s1) (Cat (Sym (src p) c)
-                       (string->tree (position (position-line p) (+ 1 (position-col p) )) s1))]))
+    [(cons c s1) (Cat (src p)
+                      (Sym (src p) c)
+                      (string->tree (position (position-line p) (+ 1 (position-col p) ) 1) s1))]))
 
 
 (define (src pos)
@@ -57,10 +58,11 @@
          [(term) $1])
     (term [(prefixop term) ($1 $2)]
           [(factor)   $1])
-    (prefixop [(NOT) (lambda (e) (Not (src $1-start-pos) e))]
-              [(AND) (lambda (e) (Not (src $1-start-pos) (Not (src $1-start-pos) e)))]
-              [(DASH) (lambda (e) (Annot (src $1-start-pos) 'Silent e))]
-              [(TIL) (lambda (e) (Annot (src $1-start-pos) 'Flat e))])
+    (prefixop [(NOT)  (lambda (e) (Not (src $1-start-pos) e))]
+              [(AND)  (lambda (e) (Not (src $1-start-pos) (Not (src $1-start-pos) e)))]
+              [(DASH) (lambda (e) (Annot (src $1-start-pos) 'Flat e))]
+              [(TIL)  (lambda (e) (Annot (src $1-start-pos) 'Silent e))]
+              [(AT)   (lambda (e) (Annot (src $1-start-pos) 'Capture e))])
     (factor [(factor postfix) ($2 $1)]
             [(atom) $1])
     (postfix [(STAR) (lambda (e) (Rep (src $1-start-pos) e))]
@@ -68,12 +70,12 @@
              [(OPTION) (lambda (e) (Alt (src $1-start-pos) e (Eps (src $1-start-pos)) ))])
     (char-list [(CHAR) (chr->sym $1-start-pos  $1)]
                [(char-rng) $1]
-               [(char-rng COMMA char-list) (Alt (src $2-start-pos) $1 $3)]
+               [(char-rng COMMA char-list)  (Alt (src $2-start-pos) $1 $3)]
                [(CHAR COMMA char-list) (Alt (src $2-start-pos) (chr->sym $1-start-pos $1) $3)])
-    (char-rng [(CHAR DASH CHAR) (mkAltList (src $1-start-pos) $1 $3)]) 
+    (char-rng [(CHAR DASH CHAR) (mkAltList  (src $1-start-pos) $1 $3)]) 
     (atom [(EPSILON) (Eps (src $1-start-pos)) ]
           [(CHAR)    (chr->sym $1-start-pos $1)]
-          [(STRING)  (string->tree (string->list $1-start-pos $1))]
+          [(STRING)  (string->tree $1-start-pos (string->list $1))]
           [(LBRACK char-list RBRACK) $2]
           [(ANY)     (Any (src $1-start-pos) )]
           [(UP VAR)  (Var (src $1-start-pos) #t $2)]

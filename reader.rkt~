@@ -36,7 +36,8 @@
          #f
          `(module peg-parser racket
             (provide (all-from-out peg-parser/peg-simple-recognizer)
-                     list
+                     list-grammar
+                     run-parse
                      (all-from-out peg-parser/peg-ast))
 
             (require peg-parser/peg-simple-recognizer
@@ -45,7 +46,7 @@
             (define grm ,grammar)
             (define (run-parse s)
               (peg-parse grm (open-input-string s)))
-            (define (list)
+            (define (list-grammar)
               (foldr string-append "" (peg->string grm)))
 
             ))

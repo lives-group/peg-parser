@@ -269,8 +269,8 @@
         [(Rng _ s e)     (string-append "['" (string s) "'-'" (string e) "']")]
         [(Var _ _ s)         s]
         [(Annot k a p)    (match a
-                            ['Flat   (string-append  "~" (pe-prec->string 4 p))]
-                            ['Silent (string-append  "-" (pe-prec->string 4 p))]) ]
+                            ['Flat   (string-append  "-" (pe-prec->string 4 p))]
+                            ['Silent (string-append  "~" (pe-prec->string 4 p))]) ]
         [(Bind k a p)     (string-append  a "@" (pe-prec->string 4 p))] 
         [(Cat _ p1 p2)    (parens (> n 2) (string-append (pe-prec->string 2 p1) (pe-prec->string 2 p2)))]
         [(Alt _ p1 p2)    (parens (> n 1) (string-append (pe-prec->string 1 p1) "/" (pe-prec->string 1 p2)))]

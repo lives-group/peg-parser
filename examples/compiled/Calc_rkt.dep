@@ -1,0 +1,1 @@
+("8.10" ta6le ("62b8ac9598868c124aef2671d32b5023e9259aad" . "09a410acca1e45a0a5bf1fa9fb98aa8d2d6c0653") (collects #"peg-parser" #"examples" #"Expression.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt") (indirect collects #"racket" #"match" #"gen-match.rkt") (indirect collects #"racket" #"match" #"parse.rkt"))

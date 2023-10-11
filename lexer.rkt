@@ -25,7 +25,8 @@
        AND
        LBRACK
        RBRACK
-       COMMA))
+       COMMA
+       AT))
 
 (define next-token
   (lexer-src-pos
@@ -46,6 +47,7 @@
    ["-" (token-DASH)]
    ["~" (token-TIL)]
    ["^" (token-UP)]
+   ["@" (token-AT)]
    ["epsilon" (token-EPSILON)]
    ["start:" (token-START)]
    [#\( (token-LPAREN)]
@@ -63,6 +65,8 @@
    [(:seq #\' #\\ #\t #\')  (token-CHAR "\t")]
    [(:seq #\' #\\ #\r #\')  (token-CHAR "\r")]
    [(:seq #\' #\\ #\b #\')  (token-CHAR "\b")]
+   [(:seq #\' #\\ #\" #\')  (token-CHAR "\"")]
+   [(:seq #\' #\\ #\' #\')  (token-CHAR "'")]
    [(:seq #\' #\\ (:+ numeric) #\')  (token-CHAR  (let* ([s lexeme]
                                                          [n (string-length s)])
                                                          (integer->char (string->number (substring s 2 (- n 1))))))]
