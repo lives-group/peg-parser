@@ -1,10 +1,12 @@
 #lang info
 (define collection "peg-parser")
 (define deps '("base"
-               "parser-tools-lib"))
+               "parser-tools-lib"
+               "typed-racket-datatype"))
 (define build-deps '("scribble-lib"
                      "racket-doc"
-                     "rackunit-lib"))
+                     "rackunit-lib"
+                     "typed-racket-datatype"))
 ;(define scribblings '(("scribblings/peg-parser.scrbl" ())))
 (define pkg-desc "A parser library based on peg")
 (define version "0.1")

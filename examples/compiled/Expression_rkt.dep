@@ -1,1 +1,0 @@
-("8.10" ta6le ("a2fa6fb0f96c9d3f43bc4bc2a21002ac60995453" . "3c395010a3e87c84786f508c0cbb404c2128e0e5") (collects #"peg-parser" #"main.rkt") (collects #"peg-parser" #"peg-ast.rkt") (collects #"peg-parser" #"peg-simple-recognizer.rkt") (collects #"racket" #"main.rkt") (collects #"racket" #"runtime-config.rkt"))
