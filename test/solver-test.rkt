@@ -10,6 +10,9 @@
          peg-gen/peg-gen-syntax
          peg-gen/peg-gen-types)
 
+(provide  accept-well-typed
+            reject-ill-typed)
+
 
 
 (define l0 (SrcLoc 0 0))
@@ -19,7 +22,7 @@
      (match gpeg
         [(GEps )        (Eps l0)]
         [(GLit c)       (Sym l0 (integer->char (+ 65 c)))]
-        [(GVar s)       (Var l0 (symbol->string s))]
+        [(GVar s)       (Var l0 #f (symbol->string s))]
         [(GSeq p1 p2)   (Cat l0 (translate-ex p1) (translate-ex p2))]
         [(GAlt p1 p2)   (Alt l0 (translate-ex p1) (translate-ex p2))]
         [(GKle p)       (Rep l0 (translate-ex p))]
@@ -36,7 +39,7 @@
           (translate-ex (GPEG-start gpeg)) )
   )
 
-(define-property aceept-well-typed ([peg  (gen:peg 3 5 3)])
+(define-property accept-well-typed ([peg  (gen:peg 3 5 3)])
     (satisfied? (solve-ctx (peg->constraints (translate peg))))
   )
 

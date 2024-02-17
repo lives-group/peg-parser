@@ -5,6 +5,8 @@
                "typed-racket-datatype"))
 (define build-deps '("scribble-lib"
                      "racket-doc"
+                     "rackcheck"
+                     "rackunit"
                      "rackunit-lib"
                      "typed-racket-datatype"
                      "pegwfgen"))
