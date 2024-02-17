@@ -1,15 +1,16 @@
 #lang scribble/manual
 
-(@require[ scribble/example
+@require[ scribble/example
           peg-parser
           @for-label[racket/base
                      racket/contract
                      racket/string
                      "../peg-ast.rkt"
                      ;"../peg-simple-recognizer.rkt"
-                     ]])
+                     ]]
 
 @title{PEG based parsers for Racket}
+
 @author{Elton M. Cardoso, Rodrigo G. Ribeiro, Leonardo V. S. Reis}
 
 
@@ -101,18 +102,18 @@ start: S
 The result of a parser is a PegTree, which is a union of the following structures:
 PTFail, PTSym, PTVar, PTStr, and PTList.
 
-@defstruct*[PTFail ()]{ This tree node is generated when the parsing process fails on the input.}
+@defstruct*[#:link-target? #f PTFail ()]{ This tree node is generated when the parsing process fails on the input.}
 
-@defstruct*[PTSym ([c char?])]{ The PTSym tree node is returned when the parser
+@defstruct*[#:link-target? #f PTSym ([c char?])]{ The PTSym tree node is returned when the parser
                                 matches an input symbol successfully.}
 
-@defstruct*[PTVar ([var string?] [t PegTree?])]{ The PTVar tree node has two fields:
+@defstruct*[#:link-target? #f PTVar ([var string?] [t PegTree?])]{ The PTVar tree node has two fields:
                      One is for the non-terminal name, and the other is for the parsed body tree.}
 
-@defstruct*[PTStr ([s string?])]{ The PTStr tree node also contains two fields:
+@defstruct*[#:link-target? #f PTStr ([s string?])]{ The PTStr tree node also contains two fields:
      One for the non-terminal name and another for the tree of the parsed body.}
 
-@defstruct*[PTList ([xs (listof? PegTree?)])]{PTList represents a list of parse trees.}
+@defstruct*[#:link-target? #f PTList ([xs (listof? PegTree?)])]{PTList represents a list of parse trees.}
 
 It is important to note that no specific node represents the "not" predicate operation in the tree
 structure. Instead, when a "not" PEG expression succeeds on the input, it results in an empty `PTList` tree
@@ -138,7 +139,7 @@ without causing name conflicts.
 }|
 
 
-@defproc[(parse [s string?])
+@defproc[#:link-target? #f (parse [s string?])
          PegTree?]{
  Run the parser defined in the language module on a given input string. Returns the PegTree structure
  representing the matched input.
@@ -155,7 +156,7 @@ without causing name conflicts.
   }|
 }
 
-@defproc[(parse-from-nt [nt string?] [s string?])
+@defproc[#:link-target? #f (parse-from-nt [nt string?] [s string?])
          PegTree?]{
  Run the parser defined in the language module on a given input string from the given non-terminal
  . Returns the PegTree structure representing the matched input.
@@ -166,7 +167,7 @@ without causing name conflicts.
    }|
 }
 
-@defproc[(parse-file [fame string?])
+@defproc[#:link-target? #f (parse-file [fame string?])
          PegTree?]{
  Run the parser defined in the language module on a given file.
  The parameter name is the path to the file containing the input to be read.
@@ -177,7 +178,7 @@ without causing name conflicts.
    }|
 }
 
-@defproc[(parse-file-from-nt [ntname string?] [fname string?])
+@defproc[#:link-target? #f (parse-file-from-nt [ntname string?] [fname string?])
          PegTree?]{
  Run the parser defined in the language module on a given file, using the given ntname as the starting
  expression.

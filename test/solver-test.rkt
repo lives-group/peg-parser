@@ -37,14 +37,18 @@
   )
 
 (define-property aceept-well-typed ([peg  (gen:peg 3 5 3)])
-    ;(display (translate peg))
     (satisfied? (solve-ctx (peg->constraints (translate peg))))
   )
 
 (define-property reject-ill-typed ([peg  (gen:ill-peg 3 5 3)])
-    ;(display (translate peg))
     (not (satisfied? (solve-ctx (peg->constraints (translate peg)))))
   )
+
+
+
+;
+; Some interesting counter-examples
+;
 
 (define peg-f1 (GPEG (make-immutable-hash (list (cons 'A (GAlt (GSeq (GLit 0) (GLit 0))
                                                                (GSeq (GEps) (GLit 0)) ))))
@@ -53,6 +57,7 @@
                              (list (cons 'A (TyPEG #f '()) )))
 ; This one was a foll error on mkSeqConstraint 
   )
+
 
 (define peg-f2
   (GPEG (make-immutable-hash (list (cons 'A  (GSeq (GAlt (GLit 3) (GLit 3))
