@@ -6,10 +6,9 @@
 (define build-deps '("scribble-lib"
                      "racket-doc"
                      "rackcheck"
-                     "rackunit"
                      "rackunit-lib"
                      "typed-racket-datatype"
-                     "pegwfgen"))
+                     "peg-gen"))
 (define scribblings '(("scribblings/peg-parser-doc.scrbl" ())))
 (define pkg-desc "A parser library based on peg")
 (define version "0.1")
