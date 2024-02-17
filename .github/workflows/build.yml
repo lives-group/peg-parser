@@ -31,7 +31,7 @@ jobs:
           distribution: 'full'
           version: '8.6'
       - name: Install deps
-        run:  raco pkg install --auto --batch --fail-fast rackcheck; raco pkg install --auto --batch --fail-fast cover; raco pkg install --auto --batch --fail-fast rackunit-lib     #  Runs a single command using the runners shell
+        run:  raco pkg install --auto --batch --fail-fast rackcheck; raco pkg install --auto --batch --fail-fast cover;    #  Runs a single command using the runners shell
       
       - name: compile
         run: raco make main.rkt
