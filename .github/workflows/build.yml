@@ -32,8 +32,8 @@ jobs:
           version: '8.6'
       - name: Install deps
         run:  sudo raco pkg install --auto --batch --fail-fast rackcheck;
-              sudo raco pkg install --auto --batch --fail-fast  pegwfgen; 
-              sudo raco pkg install --auto --batch --fail-fast yped-racket-datatype;
+              sudo raco pkg install --auto --batch --fail-fast pegwfgen; 
+              sudo raco pkg install --auto --batch --fail-fast typed-racket-datatype;
               sudo raco pkg install --auto --batch --fail-fast cover;  #  Runs a single command using the runners shell
       
       - name: compile
