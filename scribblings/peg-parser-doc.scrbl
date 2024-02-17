@@ -6,10 +6,8 @@
                      racket/contract
                      racket/string
                      "../peg-ast.rkt"
-                     "../peg-simple-recognizer.rkt"
+                     ;"../peg-simple-recognizer.rkt"
                      ]])
-
-@defmodule[peg-parser]
 
 @title{PEG based parsers for Racket}
 @author{Elton M. Cardoso, Rodrigo G. Ribeiro, Leonardo V. S. Reis}
@@ -19,7 +17,7 @@
 
 @(begin
   (define ev (make-base-eval))
-  (ev '(require rackcheck racket/list racket/stream peg-parser))
+  (ev '(require peg-parser rackcheck racket/list racket/stream ))
   (define-syntax-rule (ex body ...)
     (begin
      (random-seed 1337)
@@ -33,14 +31,14 @@
 This library provides a PEG-based parser for use with the Racket language.
 It is implemented in Racket and closely follows the proposed PEG notation.
 
-With this library, you can construct a PEG interpreter from a PEG specification.
+This library can construct a PEG interpreter from a PEG specification.
 This interpreter reads input from a port, making it a versatile tool for parsing.
 The parser utilizes a scanner-less, backtracking approach, resulting in a specific parse tree.
 
 
 @section{Parser specification}
 
-he PEG language consists of a set of rules, followed by a
+The PEG language consists of a set of rules followed by a
 starting parsing expression. The syntax for each rule follows the format:
 
 <ID> <-- Exp ;
@@ -50,23 +48,15 @@ Followed by the rules is the specification of a start PEG expression, as follows
 
 start: Exp
 
-The syntax for PEG expressions is as follows:
+The syntax for the more simple PEG expressions is as follows:
 
-@itemlist[    
-  @item{'c' :Represents a single character. A character can also be specified by
-             a backslash followed by a numeric code (e.g., '\65' is the character 'A') }
-  @item{['i'-'f'] or also ['a','b','c']: Indicates a range of characters. The first case
-        denotes all character from 'i' to 'f'. The second case any of the character 'a',
-        'v' or 'c'.}
-  @item{. : Represents any character in a PEG expression.. }
-  @item{"ab" : A double-quoted expression represents a sequence of characters (a string). }
-  @item{epsilon : A reserved word that represents the empty input. This expression will
-                  always succeds.}
- ]
-
-The parse expressions sytaxes are described below. 
 @itemlist[
-          
+  @item{'c' : Represents a single character. A character can also be specified by a backslash followed by a numeric code (e.g., '\65' is the character 'A') }
+  @item{['i'-'f'] or also ['a','b','c']: Indicates a range of characters. The first case denotes all characters from 'i' to 'f'. In the second case, any of the characters 'a, 'v', or 'c.'}
+  @item{. : Represents any character in a PEG expression.}
+  @item{"ab" : A double-quoted expression represents a sequence of characters (a string). }
+  @item{epsilon : A reserved word that represents the empty input. This expression will always succeed without consuming any input.}
+
   @item{e1 / e2 :  Denotes prioritized alternatives. It is right-associative,
                    so 'a'/'b'/'c' is the same as 'a'/('b'/'c')}
   @item{e1 e2 : The concatenation operation is represented by the juxtaposition of the expressions.  }
@@ -83,12 +73,9 @@ The parse expressions sytaxes are described below.
   silent operator (~), which prevents the construction of a tree by the recognizer (useful, for example,
   to discard whitespace). The negation predicate always results in an empty or fail AST.
 
-  The tool performs type checking on PEG expressions to ensure termination on all possible inputs.
-  Type errors are reported whenever the tool detects them.
-
 An example of a Grammar for simple expressions:
 
-@codeblock|{
+@verbatim{
 #lang peg-parser
 Exp    <-- ~W Term (~W ('+' / '-') ~W Term)*;
 Term   <--  ^Factor (~W ('*' / '/') ~W ^Factor )*;
@@ -97,9 +84,17 @@ Number <-- -(['0'-'9'] +) ;
 W      <-- ~[' ','\n','\t']*;
 
 start: Exp
-}|
+}
 
+Our implementation of the type inference verifies all specifications. No type annotations
+are allowed in the code because our system can infer all types if the PEG is well-formed.
+Any errors found during this phase will be reported. For example, the parser generator will not accept the code below since the sub-expression ('a' / !'b') might succeed without consuming any input and causing the repetition operation to loop.
 
+@verbatim{
+#lang peg-parser
+S <-- ('a' / !'b')* "cc";
+start: S
+}
 
 @section{Parser Result}
 
@@ -109,30 +104,32 @@ PTFail, PTSym, PTVar, PTStr, and PTList.
 @defstruct*[PTFail ()]{ This tree node is generated when the parsing process fails on the input.}
 
 @defstruct*[PTSym ([c char?])]{ The PTSym tree node is returned when the parser
-                                successfully matches an input symbol.}
+                                matches an input symbol successfully.}
 
 @defstruct*[PTVar ([var string?] [t PegTree?])]{ The PTVar tree node has two fields:
-                     one for the non-terminal name and another for the tree representing the parsed body.}
+                     One is for the non-terminal name, and the other is for the parsed body tree.}
 
 @defstruct*[PTStr ([s string?])]{ The PTStr tree node also contains two fields:
-     one for the non-terminal name and another for the tree of the parsed body.}
+     One for the non-terminal name and another for the tree of the parsed body.}
 
 @defstruct*[PTList ([xs (listof? PegTree?)])]{PTList represents a list of parse trees.}
 
-It's important to note that there is no specific node to represent the "not" predicate operation in the tree
-structure. Instead, when a "not" PEG expression succeeds on the input, it results in an empty `PTList` tree,
+It is important to note that no specific node represents the "not" predicate operation in the tree
+structure. Instead, when a "not" PEG expression succeeds on the input, it results in an empty `PTList` tree
 or a `PTFail` tree if it fails.
 
 This structure simplifies the representation of parser results and provides a clear understanding of the
-various nodes within a `PegTree`. The reader can now easily identify the purpose and structure of each
+various nodes within a `PegTree`. The reader can now quickly identify the purpose and structure of each
 result type.
 
-                                                  
+
 @section{Using the Parser}
 
-When we define a new parser, using the language peg-parser, we can import it as a module
-in any other racket file. The imported file will provide the fowolling
-functions run-parse and run-parse-from . 
+When we define a new parser using the language peg-parser, we can import it as a module
+in any other racket file. The module generated by the specification of the parser
+will export its parser definitions as qualified names using the name of the
+file as their prefix. This way, the user can require more than one parser
+without causing name conflicts.
 
 @codeblock|{
 #lang racket
@@ -141,13 +138,13 @@ functions run-parse and run-parse-from .
 }|
 
 
-@defproc[(run-parse [s string?])
+@defproc[(parse [s string?])
          PegTree?]{
  Run the parser defined in the language module on a given input string. Returns the PegTree structure
  representing the matched input.
  Ex.:
   @codeblock|{
- > (run-parse "3 + 2*5")
+ > (Expression:parse "3 + 2*5")
 (PTVar
  "Exp"
  (PTList
@@ -158,22 +155,44 @@ functions run-parse and run-parse-from .
   }|
 }
 
-@defproc[(run-parse-from [nt string?] [s string?])
+@defproc[(parse-from-nt [nt string?] [s string?])
          PegTree?]{
  Run the parser defined in the language module on a given input string from the given non-terminal
  . Returns the PegTree structure representing the matched input.
  Ex.:
 @codeblock|{
- > (run-parse-from "Factor""3 + 2*5")
+ > (Expression:parse-from "Factor""3 + 2*5")
 (PTStr "3")
    }|
 }
 
+@defproc[(parse-file [fame string?])
+         PegTree?]{
+ Run the parser defined in the language module on a given file.
+ The parameter name is the path to the file containing the input to be read.
+ Ex.:
+@codeblock|{
+ > (Expression:parse-from "Factor""3 + 2*5")
+(PTStr "3")
+   }|
+}
+
+@defproc[(parse-file-from-nt [ntname string?] [fname string?])
+         PegTree?]{
+ Run the parser defined in the language module on a given file, using the given ntname as the starting
+ expression.
+ Returns the PegTree structure representing the matched input.
+ Ex.:
+@codeblock|{
+ > (Expression:parse-from "Factor""3 + 2*5")
+(PTStr "3")
+   }|
+}
 @section{Example of Use: A simple Calculator}
 
 Below is the code for an arithmetic expression parser:
 
-@codeblock|{
+@verbatim{
 #lang peg-parser
 Exp    <-- ~W Term (~W ('+' / '-') ~W Term)*;
 Term   <--  ^Factor (~W ('*' / '/') ~W ^Factor )*;
@@ -182,12 +201,11 @@ Number <-- -(['0'-'9'] +) ;
 W      <-- ~[' ','\n','\t']*;
 
 start: Exp
-}|
+}
 
-The structure of the parser is designed so that it returns a variable named `Exp`.
-The body of `Exp` contains a non-empty list of sums (or subtractions) of terms (t1 + t2 + t3 ...).
+The parser returns a variable named `Exp` whose body contains a non-empty list of sums (or subtractions) of terms (t1 + t2 + t3 ...).
 The first term is evaluated, and a continuation function (`calc-exp`) processes the rest of the list.
- 
+
 
 @codeblock|{
 #lang racket
@@ -200,7 +218,7 @@ The first term is evaluated, and a continuation function (`calc-exp`) processes 
     [(PTFail) "Oh no!"]
     )
   )
-  
+
 (define (calc-exp v p)
   (match p
     ['() v]
@@ -210,8 +228,8 @@ The first term is evaluated, and a continuation function (`calc-exp`) processes 
   )
 }|
 
-The terms themselves follow the same structure, a list of multiplication
-or division of factors (f1 * f2 * f3 ...). So, we use the same strategy as before. 
+The terms follow the same structure, a list of multiplication
+or division of factors (f1 * f2 * f3 ...). So, we use the same strategy as before.
 
 @codeblock|{
 
@@ -233,7 +251,7 @@ or division of factors (f1 * f2 * f3 ...). So, we use the same strategy as befor
 
 
 The factors will either be a number (as a string), in which case we convert it to a number,
-or the variable Exp, for a parenthesized expression, in which case we just call the calc function again!
+or the variable `Exp`, for a parenthesized expression, in which case we just call the calc function again!
 
 @codeblock|{
 (define (eval-factor p)
@@ -242,16 +260,15 @@ or the variable Exp, for a parenthesized expression, in which case we just call 
     [(PTVar "Exp" _)  (calc p)]
     )
   )
-
 }|
 
 Finally, we need to read a string from the input, parse it, and run our interpreter on the
-resulting tree. We define the run function to test the code.  
+resulting tree. We define the run function to test the code.
 
 @codeblock|{
 (define (run)
    (let ([inp (read-line)] )
-        (calc (run-parse inp)) 
+        (calc (Expression:parse inp))
    )
  )
 }|

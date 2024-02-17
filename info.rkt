@@ -6,9 +6,10 @@
 (define build-deps '("scribble-lib"
                      "racket-doc"
                      "rackunit-lib"
-                     "typed-racket-datatype"))
-;(define scribblings '(("scribblings/peg-parser.scrbl" ())))
+                     "typed-racket-datatype"
+                     "pegwfgen"))
+(define scribblings '(("scribblings/peg-parser-doc.scrbl" ())))
 (define pkg-desc "A parser library based on peg")
 (define version "0.1")
-(define pkg-authors '(elton ))
+(define pkg-authors '(Elton Rodrigo Leonardo ))
 (define license '(MIT))

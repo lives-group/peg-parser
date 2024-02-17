@@ -1,4 +1,4 @@
-#lang typed/racket
+#lang typed/racket/no-check
 (require typed-racket-datatype)
 (require "peg-ast.rkt")
 
@@ -13,7 +13,10 @@
         (struct-out RChoice)
         (struct-out TRep)
         peg-parse
+        peg-parse-file
+        peg-parse-file-from
         simplified-peg-parse
+        
        )
 
 
@@ -35,7 +38,7 @@
      )
   )
 
-(define-datatype ParseTree  (TFail)
+#;(define-datatype ParseTree  (TFail)
                             (TEps)
                             (TSym [c : Char])
                             (TStr [s : (Listof Char)])
@@ -47,6 +50,17 @@
                             (TList [xs : (Listof ParseTree)])
 
   )
+(define-type  ParseTree (Union TFail TEps TSym TStr TVar TCat LChoice RChoice TRep TList))
+(struct  TFail () #:transparent)
+(struct  TEps () #:transparent)
+(struct  TSym ([c : Char]) #:transparent)
+(struct  TStr ([s : (Listof Char)]) #:transparent)
+(struct  TVar ([var : String] [t : ParseTree]) #:transparent)
+(struct  TCat ([tl : ParseTree] [tr : ParseTree]) #:transparent)
+(struct  LChoice ([tl : ParseTree]) #:transparent)
+(struct  RChoice ([tr : ParseTree]) #:transparent)
+(struct  TRep  ([xs : (Listof ParseTree)]) #:transparent)
+(struct  TList ([xs : (Listof ParseTree)]) #:transparent)
 
 
 (define (mkRep [l :  ParseTree] [t : ParseTree]  )
@@ -68,7 +82,7 @@
        [(cons (TSym c)  (TStr xs)) (TStr (cons c xs) )]
        [(cons (TEps) y) y]
        [(cons x (TList xs)) (TList (cons x xs))]
-       [(cons (TList xs) x) (TList (list-append xs (list x)))]
+       [(cons (TList xs) x) (TList (append xs (list x)))]
        [(cons x y) (TCat x y)]
   )
 )
@@ -128,4 +142,23 @@
         (pe-parse false g (PEG-start g) f)
  )
 
+
+
+(define (peg-parse-file [g : PEG] [filename : String] ) : PegTree
+        (let ([h : Input-Port (open-input-file filename #:mode 'text)])
+             (begin
+                  (pe-parse true g (PEG-start g) h)
+                  (close-input-port h)
+             )
+         )
+  )
+
+(define (peg-parse-file-from [g : PEG] [start : String] [filename : String] ) : PegTree
+        (let ([h : Input-Port (open-input-file filename #:mode 'text)])
+             (begin
+                  (pe-parse true g (nonTerminal g start) h)
+                  (close-input-port h)
+             )
+         )
+  )
 

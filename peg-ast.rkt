@@ -75,7 +75,7 @@
 (struct SrcLoc ([l : Natural ] [c : Natural ])  #:prefab)
 (struct PESyn ([src : SrcLoc])  #:prefab)
 
-(struct PEG ( [vars : (Hash String PE) ]  [start : PE] ) #:prefab)
+(struct PEG ( [name : String] [vars : (Hash String PE) ]  [start : PE] ) #:prefab)
 
 ;(struct rhs ( [e : PE] [sem : (-> Any* Any)] ) #:prefab)
 
@@ -290,7 +290,8 @@
     (pe-prec->string 0 e))
 
 (define (peg->string [e : PEG]) : (Listof String)
-    (append (hash-map (PEG-vars e)
+    (append (list (string-append "grammar: " (PEG-name e)))
+            (hash-map (PEG-vars e)
                       (lambda ([s : String] [exp : PE]) (string-append s "<-" (pe-prec->string 0 exp) "\n")) )
             (list (pe-prec->string 0 (PEG-start e)))
     )
@@ -383,7 +384,7 @@
         (let* ([vt : (Pairof (Hash String PE) (Hash PE String)) (kle-rem-rules (PEG-vars g)) ]
                [et :  (Pair PE (Hash PE String)) (rep-rem (cdr vt) (PEG-start g)) ]
                [nw-nt : (Hash String PE) (make-immutable-hash (map un-rep (hash->list (cdr et)))) ])
-              (PEG (hash-union (car vt) nw-nt) (car et))
+              (PEG (PEG-name g) (hash-union (car vt) nw-nt) (car et))
           )
   )
 

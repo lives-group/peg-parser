@@ -5,7 +5,7 @@
    (match e
     [(PTVar "Exp" (PTList (cons t xs))) (calc-exp (calc-term (PTList-xs (PTVar-t t))) xs)]
     [(PTVar "Exp" (PTList t))  (calc-term (PTList-xs (PTVar-t t)))]
-    [(PTFail) "Oh no!"]
+    [(PTFail) "Parse Fail."]
     )
   )
 
@@ -19,20 +19,20 @@
 
 (define (calc-term p)
   (match p
-    [(cons f xs) (calc-term1 (eval-factor f) xs)]
-    [(list f) (eval-factor f)]
+    [(cons f xs) (calc-term1 (calc-factor f) xs)]
+    [(list f) (calc-factor f)]
     )
   )
 
 (define (calc-term1 v p)
   (match p
     ['() v]
-    [(cons  (PTSym #\*) (cons f xs)) (calc-term1 (* v (eval-factor f)) xs)]
-    [(cons  (PTSym #\/) (cons f xs)) (calc-term1 (/ v (eval-factor f)) xs)]
+    [(cons  (PTSym #\*) (cons f xs)) (calc-term1 (* v (calc-factor f)) xs)]
+    [(cons  (PTSym #\/) (cons f xs)) (calc-term1 (/ v (calc-factor f)) xs)]
     )
   )
 
-(define (eval-factor p)
+(define (calc-factor p)
   (match p
     [(PTStr s) (string->number s)]
     [(PTVar "Exp" _)  (calc p)]
@@ -41,6 +41,6 @@
 
 (define (run)
    (let ([inp (read-line)] )
-        (calc (run-parse inp)) 
+        (calc (Expression:parse inp)) 
    )
  )

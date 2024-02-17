@@ -1,6 +1,7 @@
 #lang peg-parser
-
-start: 'a' ('b' / 'c')*
+E <--  Int '+' E / Int;
+Int <-- ['0'-'9']+;
+start: E
 
 
 

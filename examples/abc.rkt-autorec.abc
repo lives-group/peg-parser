@@ -1,0 +1,10 @@
+#lang peg-parser
+S <-- 'a' 
+A <-- 'a' A 'a' / eps;
+B <-- 'a' B 'a' / eps;
+
+start: E
+
+
+
+  

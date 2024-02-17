@@ -48,7 +48,7 @@
       (begin (printf "parse error:\na = ~a\nb = ~a\nc = ~a\nd = ~a\ne = ~a\n" a b c d e)
              (void))))
    (grammar
-    (peg [(rules START expr) (PEG (mk-vars $1) $3)])
+    (peg [(rules START expr) (PEG "grammar" (mk-vars $1) $3)])
     (rules [() '()]
            [(rule rules) (cons $1 $2)])
     (rule [(VAR ARROW expr SEMI) (cons $1 $3)])

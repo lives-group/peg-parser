@@ -32,7 +32,7 @@
   )
 
 (define (translate gpeg)  
-     (PEG (make-immutable-hash (translate-nt (hash->list (GPEG-nt gpeg))) )
+     (PEG "grmtest" (make-immutable-hash (translate-nt (hash->list (GPEG-nt gpeg))) )
           (translate-ex (GPEG-start gpeg)) )
   )
 

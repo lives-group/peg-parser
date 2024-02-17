@@ -19,6 +19,7 @@
        EPSILON
        ARROW
        START
+       GRM
        ANY
        PLUS
        OPTION
@@ -50,6 +51,7 @@
    ["@" (token-AT)]
    ["epsilon" (token-EPSILON)]
    ["start:" (token-START)]
+   ["grammar:" (token-GRM)]
    [#\( (token-LPAREN)]
    [#\) (token-RPAREN)]
    [(:seq #\" (complement (:seq any-string #\" any-string)) #\")
@@ -65,8 +67,11 @@
    [(:seq #\' #\\ #\t #\')  (token-CHAR "\t")]
    [(:seq #\' #\\ #\r #\')  (token-CHAR "\r")]
    [(:seq #\' #\\ #\b #\')  (token-CHAR "\b")]
-   [(:seq #\' #\\ #\" #\')  (token-CHAR "\"")]
-   [(:seq #\' #\\ #\' #\')  (token-CHAR "'")]
+   ;[(:seq #\' #\\ #\" #\')  (token-CHAR "\"")]
+   ;[(:seq #\' #\\ #\' #\')  (token-CHAR "'")]
+   [(:seq #\' #\\ any-char #\')  (token-CHAR (let* ([s lexeme]
+                                                    [n (string-length s)])
+                                                    (substring s 2 (- n 1))))] 
    [(:seq #\' #\\ (:+ numeric) #\')  (token-CHAR  (let* ([s lexeme]
                                                          [n (string-length s)])
                                                          (integer->char (string->number (substring s 2 (- n 1))))))]

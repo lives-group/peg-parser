@@ -1,83 +1,80 @@
-#lang typed/racket
+#lang racket
 ;#lang typed/racket/no-check
 
-(require "peg-ast.rkt"
-         "tysolver.rkt")
+(require "../peg-ast.rkt"
+         "../peg-wf.rkt"
+         "../tysolver.rkt"
+         rackcheck
+         rackunit
+         peg-gen
+         peg-gen/peg-gen-syntax
+         peg-gen/peg-gen-types)
 
-(define (constraints-of [p : PE] [v : Ty] [x : Ctx]) : Ctx
-     (match p
-        [(Any _)        (dbg-const-constraint x v #f null p)]
-        [(Eps _)        (dbg-const-constraint x v #t null p)]
-        [(Sym _ c)      (dbg-const-constraint x v #f null p)]
-        [(Var _ s)      (let ([t : Ty (ctx-getNt x s) ])
-                             (dbg-var-constraint x s v t p) ) ]
-        [(Cat _ p1 p2)  (let* ([cv1 : (Pair Ty Ctx) (nwTyVar x)]
-                               [cv2 : (Pair Ty Ctx) (nwTyVar (cdr cv1))]
-                               [c1 : Ctx (constraints-of p1 (car cv1) (cdr cv2))]
-                               [c2 : Ctx (constraints-of p2 (car cv2) c1)])
-                              (mk-cat-constraint c2 v (car cv1) (car cv2)) )]
-       
-        [(Alt _ p1 p2)  (let* ([cv1 : (Pair Ty Ctx) (nwTyVar x)]
-                               [cv2 : (Pair Ty Ctx) (nwTyVar (cdr cv1))]
-                               [c1 : Ctx (constraints-of p1 (car cv1) (cdr cv2))]
-                               [c2 : Ctx (constraints-of p2 (car cv2) c1)])
-                               (mk-cat-constraint c2 v (car cv1) (car cv2)) )]
-        [(Rep _ p)      (let* ([v1 : (Pairof Ty Ctx) (nwTyNulVar #f x)]
-                               [c1 : Ctx (constraints-of p (car v1) (cdr v1))])
-                              (mk-null-same-headset-constraint c1 v (car v1)) )]
-        [(Not _ p)      (let* ([v1 : (Pairof Ty Ctx) (nwTyVar x)]
-                               [c1 : Ctx    (constraints-of p (car v1) (cdr v1))])
-                              (mk-null-same-headset-constraint c1 v (car v1)))]
+
+
+(define l0 (SrcLoc 0 0))
+(setSynFactory PEGStructF)
+
+(define (translate-ex gpeg)  
+     (match gpeg
+        [(GEps )        (Eps l0)]
+        [(GLit c)       (Sym l0 (integer->char (+ 65 c)))]
+        [(GVar s)       (Var l0 (symbol->string s))]
+        [(GSeq p1 p2)   (Cat l0 (translate-ex p1) (translate-ex p2))]
+        [(GAlt p1 p2)   (Alt l0 (translate-ex p1) (translate-ex p2))]
+        [(GKle p)       (Rep l0 (translate-ex p))]
+        [(GNot p)       (Not l0 (translate-ex p))]
      )
   )
 
-(define (peg->constraints [p : PEG] ) : Ctx
-    (let* ([nts : (Listof String) (hash-keys (PEG-vars p))]
-           [inital-ctx : Ctx (build-initial-ctx nts)]
-           [rules : (Listof (Pairof String PE)) (hash->list (PEG-vars p)) ]
-           )
-         (constraints-of-rules rules
-                               (constraints-of (PEG-start p) (start-exp-var) inital-ctx))
+(define (translate-nt xs)
+     (map (lambda (p) (cons (symbol->string (car p)) (translate-ex (cdr p))) ) xs)
   )
-)
+
+(define (translate gpeg)  
+     (PEG (make-immutable-hash (translate-nt (hash->list (GPEG-nt gpeg))) )
+          (translate-ex (GPEG-start gpeg)) )
+  )
+
+(define-property aceept-well-typed ([peg  (gen:peg 3 5 3)])
+    ;(display (translate peg))
+    (satisfied? (solve-ctx (peg->constraints (translate peg))))
+  )
+
+(define-property reject-ill-typed ([peg  (gen:ill-peg 3 5 3)])
+    ;(display (translate peg))
+    (not (satisfied? (solve-ctx (peg->constraints (translate peg)))))
+  )
+
+(define peg-f1 (GPEG (make-immutable-hash (list (cons 'A (GAlt (GSeq (GLit 0) (GLit 0))
+                                                               (GSeq (GEps) (GLit 0)) ))))
+                             (GSeq (GKle (GVar 'A))
+                                   (GAlt (GLit 0) (GLit 0)))
+                             (list (cons 'A (TyPEG #f '()) )))
+; This one was a foll error on mkSeqConstraint 
+  )
+
+(define peg-f2
+  (GPEG (make-immutable-hash (list (cons 'A  (GSeq (GAlt (GLit 3) (GLit 3))
+                                                   (GSeq (GVar 'B) (GEps))))
+                                   (cons 'B  (GNot (GAlt (GLit 2) (GVar 'A))))))
+        (GSeq (GSeq (GVar 'B) (GVar 'A))
+              (GAlt (GLit 1) (GLit 0)))
+        (list (cons 'A  (TyPEG #f '()))
+              (cons 'B  (TyPEG #t '(A)))))
+  ; Allowed unification of vars to terms of union.
+  ; Needed test to verify if all variables are instanciated.
+  )
 
 
-(define (constraints-of-rules [xs : (Listof (Pair String PE))] [x : Ctx]) : Ctx
-          (foldr (lambda ([r : (Pairof String PE)] [x1 : Ctx])
-                         (constraints-of (cdr r) (ctx-getNt x1 (car r)) x1)) x xs)      
+(define peg-ill1
+  (GPEG (make-immutable-hash (list (cons 'O  (GSeq (GSeq (GEps) (GEps))
+                                             (GAlt (GLit 4) (GVar 'T))))
+                                   (cons 'Q  (GAlt (GSeq (GLit 4) (GEps)) (GSeq (GVar 'T) (GEps))))
+                                   (cons 'T  (GSeq (GSeq (GEps) (GLit 1))
+                                             (GAlt (GEps) (GEps))))))
+        (GSeq (GNot (GEps)) (GAlt (GLit 4) (GEps)))
+        (list (cons 'T  (TyPEG #f '()))
+              (cons 'O  (TyPEG #f '(T)))
+              (cons 'Q 'ill-typed)))
  )
-
-(define L0 : SrcLoc (SrcLoc 0 0))
-
-(define pegtest1 : PEG
-  (PEG  (make-immutable-hash
-         (list (cons "A" (Rep L0 (Sym L0 #\a) ) )
-               (cons "B" (Cat L0 (Rep L0 (Sym L0 #\a) ) (Var L0 "B")))
-               )
-         )
-         (Cat L0 (Var L0 "A") (Var L0 "B")) ))
-
-(define pegtest2 : PEG
-  (PEG  (make-immutable-hash)
-         (Rep L0 (Sym L0 #\a) ) )
-)
-
-(define pegtest3 : PEG
-  (PEG  (make-immutable-hash
-         (list (cons "B" (Cat L0  (Eps L0) (Var L0 "B")))
-               )
-         )
-         (Var L0 "B") ) )
-
-(define pegtest4 : PEG
-  (PEG  (make-immutable-hash)
-         (Rep L0 (Eps L0)) )
- )
-
-(define pegtest5 : PEG
-  (PEG  (make-immutable-hash
-         (list (cons "A" (Rep L0 (Sym L0 #\a) ) )
-               (cons "B" (Rep L0 (Var L0 "A") ))
-               )
-         )
-         (Var L0 "B")) )

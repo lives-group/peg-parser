@@ -13,6 +13,8 @@
         (struct-out PTList)
         peg-parse
         peg-parse-from
+        peg-parse-file
+        peg-parse-file-from
        )
 
 
@@ -34,12 +36,12 @@
      )
   )
 
-(define-type PegTree (Union PTFail PTSym PTVar PTStr PTList))
+(define-type PegTree (Union PTFail Char PTVar String))
 
 (struct  PTFail () #:transparent)
 (struct  PTSym ([c : Char]) #:transparent)
 (struct  PTStr ([s : (Listof Char)]) #:transparent)
-(struct  PTVar ([var : String] [t : PegTree]) #:transparent)
+(struct  PTVar ([var : String] [t : (Listof PegTree)]) #:transparent)
 (struct  PTList ([xs : (Listof PegTree)]) #:transparent)
                            
 
@@ -121,3 +123,21 @@
 (define (peg-parse-from [g : PEG] [start : String] [f : Input-Port ] ) : PegTree  
         (spe-parse g (nonTerminal g start) f)
  )
+
+(define (peg-parse-file [g : PEG] [filename : String] ) : PegTree
+        (let ([h : Input-Port (open-input-file filename #:mode 'text)])
+             (begin
+                  (spe-parse g (PEG-start g) h)
+                  (close-input-port h)
+             )
+         )
+  )
+
+(define (peg-parse-file-from [g : PEG] [start : String] [filename : String] ) : PegTree
+        (let ([h : Input-Port (open-input-file filename #:mode 'text)])
+             (begin
+                  (spe-parse g (nonTerminal g start) h)
+                  (close-input-port h)
+             )
+         )
+  )
