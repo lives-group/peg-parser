@@ -9,7 +9,7 @@
                      "rackunit-lib"
                      "typed-racket-datatype"
                      "peg-gen"))
-(define scribblings '(("scribblings/peg-parser-doc.scrbl" ())))
+(define scribblings '(("scribblings/peg-parser.scrbl" ())))
 (define pkg-desc "A parser library based on peg")
 (define version "0.1")
 (define pkg-authors '(Elton Rodrigo Leonardo ))
