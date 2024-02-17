@@ -12,7 +12,7 @@
 @title{PEG based parsers for Racket}
 
 @author{Elton M. Cardoso, Rodrigo G. Ribeiro, Leonardo V. S. Reis}
-
+@defmodule[peg-parser]
 
 @table-of-contents[]
 
