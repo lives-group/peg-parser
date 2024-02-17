@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: build
+name: tests
 
 # Controls when the workflow will run
 on:
@@ -33,6 +33,5 @@ jobs:
       - name: Install deps
         run:  raco pkg install --auto --batch --fail-fast rackcheck peg-gen typed-racket-datatype;
       
-      - name: compile
-        run: raco pkg install; raco make main.rkt
-        
+      - name: testing
+        run: raco pkg install; raco test main.rkt

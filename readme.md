@@ -1,3 +1,5 @@
+![example workflow](https://github.com/lives-group/peg-parser/actions/workflows/build.yml/badge.svg)
+![example workflow](https://github.com/lives-group/peg-parser/actions/workflows/tests.yml/badge.svg)
 
 Welcome to the PEG-Parser for Racket repository!
 
