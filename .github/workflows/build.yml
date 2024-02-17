@@ -31,9 +31,7 @@ jobs:
           distribution: 'full'
           version: '8.11'
       - name: Install deps
-        run:  sudo raco pkg install --auto --batch --fail-fast rackcheck peg-gen;
-              sudo raco pkg install --auto --batch --fail-fast typed-racket-datatype;
-              sudo raco pkg install --auto --batch --fail-fast cover;  #  Runs a single command using the runners shell
+        run:  raco pkg install --auto --batch --fail-fast rackcheck peg-gen typed-racket-datatype;
       
       - name: compile
         run: raco pkg install; raco make main.rkt
