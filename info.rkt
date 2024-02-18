@@ -2,10 +2,14 @@
 (define collection "peg-parser")
 (define deps '("base"
                "parser-tools-lib"
+               "rackcheck"
+               "peg-gen"
+               "rackunit-lib"
                "typed-racket-datatype"))
 (define build-deps '("scribble-lib"
                      "racket-doc"
                      "rackcheck"
+                     "rackcheck-lib"
                      "rackunit-lib"
                      "typed-racket-datatype"
                      "peg-gen"))
