@@ -5,13 +5,15 @@
                "rackcheck"
                "peg-gen"
                "rackunit-lib"
-               "typed-racket-datatype"))
+               "typed-racket-datatype"
+               "typed-racket-lib"))
 (define build-deps '("scribble-lib"
                      "racket-doc"
                      "rackcheck"
                      "rackcheck-lib"
                      "rackunit-lib"
                      "typed-racket-datatype"
+                     "typed-racket-lib"
                      "peg-gen"))
 (define scribblings '(("scribblings/peg-parser.scrbl" ())))
 (define pkg-desc "A parser library based on peg")
