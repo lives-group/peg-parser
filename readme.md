@@ -63,7 +63,7 @@ generate parsers using the tool.
 
 # Documentation
 
-Please read the documentation [here](./doc/peg-parser-doc.html) for more
+Please read the documentation [here](https://docs.racket-lang.org/peg-parser/index.html) for more
 specific details on the usage of library.
 
 # License
