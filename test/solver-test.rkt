@@ -11,9 +11,7 @@
          peg-gen/peg-gen-types)
 
 (provide  accept-well-typed
-            reject-ill-typed)
-
-
+          reject-ill-typed)
 
 (define l0 (SrcLoc 0 0))
 (setSynFactory PEGStructF)
@@ -39,12 +37,16 @@
           (translate-ex (GPEG-start gpeg)) )
   )
 
-(define-property accept-well-typed ([peg  (gen:peg 3 5 3)])
+(define-property accept-well-typed ([peg  (gen:peg 3 3 3)])
     (satisfied? (solve-ctx (peg->constraints (translate peg))))
   )
 
-(define-property reject-ill-typed ([peg  (gen:ill-peg 3 5 3)])
-    (not (satisfied? (solve-ctx (peg->constraints (translate peg)))))
+(define-property reject-ill-typed ([peg  (gen:ill-peg 3 3 3)])
+    (let ([p (translate peg) ])
+        (pprint-peg p)
+        (not (satisfied? (solve-ctx (peg->constraints p))))
+        (displayln "\n------------------xxx-----------")
+    )
   )
 
 
@@ -86,3 +88,35 @@
               (cons 'O  (TyPEG #f '(T)))
               (cons 'Q 'ill-typed)))
  )
+
+;V<-(ϵ/ϵ)V/V/V
+;T<-(V/'A')X'C'/!'C'!'C'
+;X<-!(T'D''A''C')
+;('A'/ϵ)ϵ'B'/!'B''C''A'
+(define peg-ill2
+   (GPEG (make-immutable-hash (list (cons 'V (GAlt (GAlt (GSeq (GAlt (GEps) (GEps)) (GVar 'V) )
+                                                   (GVar 'V))
+                                                   (GVar 'V)))
+                                    (cons 'T (GAlt (GSeq (GSeq (GAlt (GVar 'V) (GLit 0)) (GVar 'X)) (GLit 2))
+                                                   (GSeq (GNot (GLit 2)) (GNot (GLit 2)))))
+                                    (cons 'X (GNot (GSeq (GSeq (GSeq (GVar 'T) (GLit 3)) (GLit 0)) (GLit 2))))
+                               ))
+         (GAlt (GSeq (GSeq (GAlt (GLit 0) (GEps)) (GEps)) (GLit 1))
+               (GSeq (GSeq (GNot (GLit 1)) (GLit 2)) (GLit 0)))
+         (list))
+)
+
+;V<-ϵV
+;T<-(V/'A')X/!'C'
+;X<-!(T'D')
+;('A'/ϵ)'B'/!'B'
+(define peg-ill2-s
+   (GPEG (make-immutable-hash (list (cons 'V   (GSeq (GEps) (GVar 'V)))
+                                    (cons 'T (GAlt (GSeq (GAlt (GVar 'V) (GLit 0)) (GVar 'X))      
+                                                   (GNot (GLit 2)) ))
+                                    (cons 'X (GNot  (GSeq (GVar 'T) (GLit 3))) )
+                               ))
+         (GAlt (GSeq (GAlt (GLit 0) (GEps)) (GLit 1))
+               (GNot (GLit 1)) )
+         (list))
+)
