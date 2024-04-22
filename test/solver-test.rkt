@@ -43,9 +43,7 @@
 
 (define-property reject-ill-typed ([peg  (gen:ill-peg 3 3 3)])
     (let ([p (translate peg) ])
-        (pprint-peg p)
         (not (satisfied? (solve-ctx (peg->constraints p))))
-        (displayln "\n------------------xxx-----------")
     )
   )
 
