@@ -4,13 +4,16 @@
 (require "peg-ast.rkt")
 
 (provide  start-exp-var
-          Ctx
+          (struct-out Ctx)
           (struct-out Ty)
           (struct-out TyErr)
+          TyEx
+          (struct-out ExHs)
+          (struct-out Exb)
+          
           build-initial-ctx
           ctx-getNt
-          ctx-recordNt
-          TyEx
+          
           nwExVar
           nwTyVar
           rstvar
@@ -20,7 +23,7 @@
           mk-null-same-headset-constraint
           mk-const-constraint
           mk-var-constraint
-
+          
           dbg-cat-constraint
           dbg-alt-constraint
           dbg-null-same-headset-constraint
@@ -29,9 +32,17 @@
           ctx-pushr
           ctx-pushr-with-debug
 
+          ctx-tyEnv-toString
+          ctx-constr-toString
+          ctx-subst-toString
+          ty->string
+          
           solve-ctx
+
+          get-start-exp-ty
           nt-occurs
           satisfied?
+          unsolved-nts
           unsolved-pe
           get-errors)
           
@@ -48,7 +59,9 @@
 ; A mirror defininitio of PE, except for the adition for
 ; tracking pending derivate and delta computations.
 
-(struct Ctx ([env : (Hash String Ty)]   ; ψ
+(struct Ctx (;[env : (Hash String Ty)]   ; ψ
+             [env : (Hash Natural Ty)]
+             [nt-names : (Hash String Natural) ]
              [subs : (Hash Natural TyEx)] ; ϕ
              [clist : (Listof Constr) ] ; UUID term ≡ term
              [vcount : Natural] ;  Variable counter
@@ -57,17 +70,22 @@
             )
        #:transparent)
 
+
+
+
 ;(struct VDep   ([cnst : Natrual] [src : Natural] [targs : (Listof Natural)] ) #:transparent)
-(define-type Deps (Hash Natural (Pairof Natural (Listof Natural)) ))
+;(define-type Deps (Hash Natural (Pairof Natural (Listof Natural)) ))
 
 ;(define-type Term (Union Ty ))
 
 (struct Ty   ([nul? : TyEx] [headset : TyEx] ) #:transparent)
 
+(struct Pair   ([fst : Any] [snd : Any] ) #:transparent)
+
 (define-type TyEx (Union ExHs Exb ExVar ExU ExNot ExOr ExAnd ExImp))
 
-(struct ExHs   ([headset : (Listof String)] ) #:transparent)
-(struct Exb   ([nul : Boolean] ) #:transparent)
+(struct ExHs   ([headset : (Listof Natural)] ) #:transparent)
+(struct Exb    ([nul : Boolean] ) #:transparent)
 (struct ExVar  ([name : Natural])#:transparent)
 (struct ExU    ([left : TyEx] [right : TyEx]) #:transparent)
 (struct ExAnd  ([left : TyEx] [right : TyEx])#:transparent)
@@ -77,22 +95,44 @@
 
 (struct Constr ([uid : Natural] [lft : TyEx] [rght : TyEx]) #:transparent)
 
+(define (rename-TyEx [t : (Hash String Natural)] [e : TyEx] )
+       (match e
+        [(ExHs hs) (ExHs (map (lambda (x) (hash-ref t x)) hs))]
+        [(ExU  l r)  (ExU  (rename-TyEx t l) (rename-TyEx t r))]
+        [(ExImp c h1 h2) (ExImp c (rename-TyEx t h1) (rename-TyEx t h2))]
+        [_ e]
+     )
+   )
 
-(define (mkTyList [xs : (Listof String)]
-                  [r : (Listof (Pairof String Ty))]
-                  [start : Natural] ) : (Pairof  (Listof (Pairof String Ty)) Natural)
-   (cond
-     [(null? xs) (cons r start)]
-     [else (mkTyList (cdr xs)
-                     (cons (cons (car xs) (Ty (ExVar start) (ExVar (+ start 1)))) r)
-                     (+ start 2))] )
+(define (reverse-names  [c : Ctx] ) : [t : (Hash Natural String)]
+       (make-immutable-hash (map (lambda (p) (cons (cdr p) (car p)) ) (hash->list (Ctx-nt-names c))))
+   )
+
+(define (reverse-name-TyEx [t : (Hash Natural String)] [e : TyEx] )
+       (match e
+        [(ExHs hs)       (ExHs (map (lambda (x) (hash-ref t x)) hs))]
+        [(ExU  l r)      (ExU  (reverse-name-TyEx t l) (reverse-name-TyEx t r))]
+        [(ExImp c h1 h2) (ExImp c (reverse-name-TyEx t h1) (reverse-name-TyEx t h2))]
+        [_ e]
+     )
+   )
+
+(define (mkTyList [xs : (Listof Natural)]
+                  [start : Natural] ) : (Pairof  (Listof (Pairof Natural Ty)) Natural)
+   (foldl (lambda (x p)
+                   (cons (cons (cons x (Ty (ExVar (cdr p)) (ExVar (+ (cdr p) 1))) ) (car p))
+                         (+ (cdr p) 2)))
+          (cons '() start)
+          xs)
   )
 
 (define (build-initial-ctx [xs : (Listof String)]) : Ctx
-    (let* ([l : (Pairof (Listof (Pairof String Ty)) Natural)
-               (mkTyList xs null 2)]
-           [m : (Hash String Ty) (make-immutable-hash (car l))]) 
-          (Ctx m (make-immutable-hash) (list) (cdr l) 0 (make-immutable-hash))
+    (let* ([names : (Listof (Pairof String Natural))
+                    (map cons xs (build-list (length xs) values))]
+           [l : (Pairof (Listof (Pairof Natural Ty)) Natural)
+                (mkTyList (map cdr names) 2)]
+           [m : (Hash Natural Ty) (make-immutable-hash (car l))]) 
+           (Ctx m (make-immutable-hash names) (make-immutable-hash) (list) (cdr l) 0 (make-immutable-hash))
        )
   )
 
@@ -100,24 +140,20 @@
       (cons n xs)
   )
 
-#;(define (trace-udeps [l : (Listof Constr)] [t : Deps]) : Deps
-     (cond
-       [(null? l) t]
-       [else      (match (car l)
-                    [(Constr n (ExVar i) (ExU sl sr)) (trace-udeps (cdr l) 
-                    (hash-set t i (mkPair n (vars-of (Constr-rght (car l)))) )) ]
-                    [_ (trace-udeps (cdr l) t)]) ])
- ) 
-
-
 
 (define (nwExVar [c : Ctx] ) : (Pairof TyEx Ctx)
      (cons (ExVar (Ctx-vcount c))
-           (Ctx (Ctx-env c) (Ctx-subs c) (Ctx-clist c)  (+ (Ctx-vcount c)  1 ) (Ctx-ccount c) (Ctx-vsrc c)))
+           (Ctx (Ctx-env c)
+                (Ctx-nt-names c)
+                (Ctx-subs c)
+                (Ctx-clist c)
+                (+ (Ctx-vcount c)  1 )
+                (Ctx-ccount c)
+                (Ctx-vsrc c)))
   ) 
 
 (define (rstvar [c : Ctx] ) : Ctx
-        (Ctx (Ctx-env c) (Ctx-subs c) (Ctx-clist c) 2 (Ctx-ccount c) (Ctx-vsrc c))
+        (Ctx (Ctx-env c) (Ctx-nt-names c) (Ctx-subs c) (Ctx-clist c) 2 (Ctx-ccount c) (Ctx-vsrc c))
   )
 
 (define (nwTyVar [c : Ctx] ) : (Pairof Ty Ctx)
@@ -137,9 +173,12 @@
 
 (define (ctx-pushr [c : Ctx] [r : (Pairof Ty Ty)] ) : Ctx
       (Ctx (Ctx-env c)
+           (Ctx-nt-names c)
            (Ctx-subs c)
            (cons (Constr (Ctx-ccount c) (Ty-nul? (car r)) (Ty-nul? (cdr r)))
-                 (cons (Constr (+ (Ctx-ccount c) 1) (Ty-headset (car r)) (Ty-headset (cdr r)))
+                 (cons (Constr (+ (Ctx-ccount c) 1)
+                               (rename-TyEx  (Ctx-nt-names c) (Ty-headset (car r)))
+                               (rename-TyEx  (Ctx-nt-names c) (Ty-headset (cdr r))))
                        (Ctx-clist c)))
            (Ctx-vcount c)
            (+ (Ctx-ccount c) 2)
@@ -149,9 +188,12 @@
 
 (define (ctx-pushr-with-debug [c : Ctx] [r : (Pairof Ty Ty)] [p : PE] ) : Ctx
       (Ctx (Ctx-env c)
+           (Ctx-nt-names c) 
            (Ctx-subs c)
            (cons (Constr (Ctx-ccount c) (Ty-nul? (car r)) (Ty-nul? (cdr r)))
-                 (cons (Constr (+ (Ctx-ccount c) 1) (Ty-headset (car r)) (Ty-headset (cdr r)))
+                 (cons (Constr (+ (Ctx-ccount c) 1)
+                               (rename-TyEx  (Ctx-nt-names c) (Ty-headset (car r)))
+                               (rename-TyEx  (Ctx-nt-names c) (Ty-headset (cdr r))))
                        (Ctx-clist c)))
            (Ctx-vcount c)
            (+ (Ctx-ccount c) 2)
@@ -159,12 +201,9 @@
            ) 
   )
 
-(define (ctx-recordNt [c : Ctx] [v : String]  [t : Ty] ) : Ctx
-         (Ctx (hash-set (Ctx-env c) v t) (Ctx-subs c) (Ctx-clist c) (Ctx-vcount c) (Ctx-ccount c) (Ctx-vsrc c))
-  )
-
 (define (ctx-getNt [c : Ctx] [v : String]  ) : Ty
-         (hash-ref (Ctx-env c) v) 
+         (let ([ns : String (hash-ref (Ctx-nt-names c) v) ])
+              (hash-ref (Ctx-env c) ns) )
   )
 
 (define (mk-alt-constraint [x : Ctx]  [v : Ty] [l : Ty] [r : Ty] ) : Ctx
@@ -229,11 +268,6 @@
      (ctx-pushr-with-debug x (cons v (Ty (Exb b)  (ExHs h)) ) p )
 )
 
-
-(define (reduce-term [t : Ty]) : Ty
-     (Ty (reduce-ex (Ty-nul? t)) (reduce-ex (Ty-headset t)) )
-  )
-
 (define (vars-of [ e : TyEx] ) : (Listof Natural)
     (match e
         [(ExU  l r)  (set-union (vars-of l) (vars-of r))]
@@ -246,7 +280,19 @@
      )
 )
 
-(define (normalizeU [e : TyEx] ) : TyEx
+(define (solve-self-ref-union [ e : TyEx] [name : (Option Natural)]) :  TyEx
+    (match e
+        [(ExU  l r)  (ExU  (solve-self-ref-union l name) (solve-self-ref-union r name)) ]
+        [(ExImp c h1 h2) (ExImp c (solve-self-ref-union h1 name) (solve-self-ref-union h2 name))]
+        [(ExVar n) (cond
+                     [(equal? n name) (ExHs '())]
+                     [else e] )] 
+        [_ e]
+     )
+)
+
+
+#;(define (normalizeU [e : TyEx] ) : TyEx
     (match e
         [(ExU (ExHs ys) (ExHs xs)) (ExHs (set-union ys xs))]
         [(ExU l (ExVar n)) (ExU (ExVar n) l)]
@@ -260,6 +306,45 @@
                      [(cons (ExU l r) (ExU l2 r2) )  (ExU l (ExU r (ExU l2 r2))) ]
                      [(cons qq qq2) (ExU qq qq2)]) ]
         [a a]
+     )
+ )
+
+(define (foldr1 [p : (-> Any Any)] [xs : (Listof Any)] ) : (Listof Any)
+      (match xs
+          ['() '()]
+          [(list x) x]
+          [(cons x xs1) (p x (foldr1 p xs1))]
+  ))
+
+#;(define (normalizeU [e : TyEx] ) : TyEx
+    (match e
+        [(ExU _ _) (match (breakU e)
+                     [(Pair '() '()) (error "normalizeU: impossible situation !")]
+                     [(Pair '() xs)  (foldr1 (lambda (x y) (ExU x y)) xs)]
+                     [(Pair  vs '()) (foldr1 (lambda (x y) (ExU x y)) vs)]
+                     [(Pair vs xs) (ExU  (foldr1 (lambda (x y) (ExU x y)) vs)
+                                         (foldr1 (lambda (x y) (ExU x y)) xs))]
+                     [a a])]
+        [a a]
+     )
+ )
+
+#;(define (breakU [e : TyEx] ) : Pair
+    (match e
+        [(ExU (ExHs ys) (ExHs xs)) (Pair '() (list (ExHs (set-union ys xs))))]
+        [(ExU (ExHs ys) (ExVar n)) (Pair  (list (ExVar n) ) (list (ExHs ys)))]
+        [(ExU (ExVar n) (ExHs xs)) (Pair  (list (ExVar n) ) (list (ExHs xs)))]
+        [(ExU l r) (match (cons (breakU l) (breakU r))
+                     [(cons (Pair vs1 xs1) (Pair vs2 ys1) )
+                          (Pair  (set-union vs1 vs2) (set-union xs1 ys1))]
+                     [(cons (Pair vs1 xs1) (ExVar v))
+                           (Pair (set-union vs1 (list (ExVar v))) xs1)]
+                     [(cons (ExVar v) (Pair vs1 xs1)) (Pair (set-union vs1 (list (ExVar v)))
+                                                           xs1)]
+                     #;[(cons  v (Pair vs1 xs1)) (Pair vs1 (list (ExU v (car xs1))) )]
+                     [(cons w v) (Pair '() (list (ExU w v)))]
+                     )]
+        [a (Pair '() (list a))]
      )
  )
 
@@ -294,23 +379,24 @@
   )
 
 
-(define (unify-ex [t1 : TyEx] [t2 : TyEx] [cv : Natural]) : (Option (Pairof (Listof (Pairof Natural TyEx)) Natural))
+(define (unify-ex [t1 : TyEx] [t2 : TyEx] [cv : Natural]) :
+      (Option (Pairof (Listof (Pairof Natural TyEx)) Natural))
     (match (cons t1 t2)
         [(cons (ExVar n)     (Exb b))     (cons (list (cons n t2) ) cv)]
         [(cons (ExVar n)     (ExHs l))    (cons (list (cons n t2) ) cv)]
         ;[(cons (Exb b)       (ExVar n))   (cons (list (cons n t2) ) cv)]
         ;[(cons (ExHs l)      (ExVar n))   (cons (list (cons n t2) ) cv)]
-        [(cons (ExVar n1)    (ExVar n2))  (let ([nv : TyEx (ExVar cv)])
+        #;[(cons (ExVar n1)    (ExVar n2))  (let ([nv : TyEx (ExVar cv)])
                                                (cons (list (cons n1 nv)
                                                            (cons n2 nv))
                                                      (+ cv 1)))]
-        [(cons (ExVar n1)    (ExU (ExVar n1) r))  (cons (list (cons n1 r)) cv)]
-        [(cons (ExVar n1)    (ExU l (ExVar n1)))  (cons (list (cons n1 l)) cv)]
+        ;[(cons (ExVar n1)    (ExU (ExVar n1) r))  (cons (list (cons n1 r)) cv)]
+        ;[(cons (ExVar n1)    (ExU l (ExVar n1)))  (cons (list (cons n1 l)) cv)]
         ;[(cons (ExVar n1)    (ExAnd (ExVar n1) (Exb #f))) (list (cons n1 #f))]
         ;[(cons (ExVar n1)    (ExAnd (Exb #f) (ExVar n1))) (list (cons n1 #f))]
         ;[(cons (ExVar n1)    (ExOr (ExVar n1) (Exb #t))) (list (cons n1 #t))]
         ;[(cons (ExVar n1)    (ExOr (Exb #t) (ExVar n1))) (list (cons n1 #t))]
-        [(cons (ExVar n1)    (ExU l r))  (cons (list (cons n1 t2)) cv)]
+        ;[(cons (ExVar n1)    (ExU l r))  (cons (list (cons n1 t2)) cv)]
         [(cons x x) (cons (list) cv)]
         [_ #f]
      )
@@ -319,7 +405,7 @@
 (define (red-norm [ xs : (Option (Listof (Pairof Natural TyEx))) ])
   (cond
     [xs  (map (lambda ([ pp : (Pairof Natural TyEx)])
-                      (cons (car pp) (reduce-ex (normalizeU (cdr pp)) ) ))
+                      (cons (car pp) (reduce-ex (cdr pp) #;(normalizeU (cdr pp)) ) ))
              xs
           )]
     [else #f])
@@ -382,18 +468,19 @@
 )
 
 (define (apply-sub-ty [h : (Hash Natural TyEx)] [ty : Ty] ) : Ty
-      (Ty (apply-sub h (Ty-nul? ty)) (reduce-ex (normalizeU (apply-sub h (Ty-headset ty)))))
+      (Ty (apply-sub h (Ty-nul? ty)) (reduce-ex (apply-sub h (Ty-headset ty)) #;(normalizeU (apply-sub h (Ty-headset ty)))))
   )
 
 (define (sub-ctx [ x : Ctx]) : Ctx
    (Ctx (make-immutable-hash (hash-map (Ctx-env x)
                                        (lambda ([s : String] [t : Ty])
                                                (cons s  (apply-sub-ty (Ctx-subs x) t) ))))
+        (Ctx-nt-names x)
         (Ctx-subs x)
         (map (lambda ([c : Constr ])
                      (Constr (Constr-uid c)
                              (Constr-lft c)
-                             (reduce-ex ( normalizeU (apply-sub (Ctx-subs x) (Constr-rght c)))) ))
+                             (reduce-ex (apply-sub (Ctx-subs x) (Constr-rght c)) #;( normalizeU (apply-sub (Ctx-subs x) (Constr-rght c)))) ))
              (Ctx-clist x) )
         (Ctx-vcount x)
         (Ctx-ccount x)
@@ -434,7 +521,7 @@
         [else (let* ([h : (Hash Natural TyEx) (make-immutable-hash l)]
                      [s1 : (Hash Natural TyEx)
                            (cast (hash-map/copy s (lambda ([k : Natural] [t : TyEx])
-                                                          (values k  (reduce-ex ( normalizeU (apply-sub h t))) )) )
+                                                          (values k  (reduce-ex  (apply-sub h t) #;( normalizeU (apply-sub h t))) )) )
                                  (Hash Natural TyEx))]
                   
                     )
@@ -452,8 +539,14 @@
      (cond
        [(null? (Ctx-clist x) ) (cons x l)]
        [else (let* ([ctr : Constr (car (Ctx-clist x))]
-                    [ctrl : TyEx (reduce-ex (normalizeU (apply-sub (Ctx-subs x) (Constr-lft ctr))))]
-                    [ctrr : TyEx (reduce-ex (normalizeU (apply-sub (Ctx-subs x) (Constr-rght ctr))))]
+                    [ctrl : TyEx (reduce-ex (apply-sub (Ctx-subs x) (Constr-lft ctr))
+                               #;(normalizeU (apply-sub (Ctx-subs x) (Constr-lft ctr))))]
+                    [lvname : (Option Natural) (match ctrl
+                                                 [(ExVar n) n]
+                                                 [_ #f]) ]
+                    [ctrr : TyEx (reduce-ex (solve-self-ref-union (apply-sub (Ctx-subs x) (Constr-rght ctr))
+                                                                  lvname)
+                                          #;(normalizeU (apply-sub (Ctx-subs x) (Constr-rght ctr))))]
                     [r : (Option (Pairof (Listof (Pairof Natural TyEx)) Natural))
                          (unify-ex ctrl ctrr (Ctx-vcount x))]
                     [ht :  (Hash Natural TyEx) (cond
@@ -461,8 +554,8 @@
                                                  [else (Ctx-subs x)])]
                     [x1 : Ctx
                         (cond
-                          [r    (Ctx (Ctx-env x) ht (cdr (Ctx-clist x)) (cdr r) (Ctx-ccount x) (Ctx-vsrc x))]
-                          [else (Ctx (Ctx-env x) ht (cdr (Ctx-clist x)) (Ctx-vcount x) (Ctx-ccount x) (Ctx-vsrc x))])])
+                          [r    (Ctx (Ctx-env x) (Ctx-nt-names x) ht (cdr (Ctx-clist x)) (cdr r) (Ctx-ccount x) (Ctx-vsrc x))]
+                          [else (Ctx (Ctx-env x) (Ctx-nt-names x) ht (cdr (Ctx-clist x)) (Ctx-vcount x) (Ctx-ccount x) (Ctx-vsrc x))])])
                   (cond
                     [r     (solve-iterate x1 l)]
                     [else  (solve-iterate x1 (cons (Constr (Constr-uid ctr) ctrl ctrr) l) ) ] ))])
@@ -475,6 +568,7 @@
             [y : Ctx (car res)]
             [k : Natural (length (cdr res))]
             [z : Ctx (Ctx (Ctx-env y)
+                          (Ctx-nt-names x)
                           (Ctx-subs y)
                           (cdr res)
                           (Ctx-vcount y)
@@ -491,8 +585,12 @@
   )
 
 (define (get-start-exp-ty [x : Ctx]) : Ty
-   (apply-sub-ty (Ctx-subs x) (start-exp-var))
-  )
+   (let ([t (reverse-names x)]
+         [nwst (apply-sub-ty (Ctx-subs x) (start-exp-var))])
+        (Ty (Ty-nul? nwst) 
+            (ExHs (map (lambda (z) (hash-ref t z)) (ExHs-headset (Ty-headset nwst))))) 
+         
+  ))
 
 (define (isntancied-ty? [t : Ty]) : Boolean
    (match t
@@ -500,9 +598,9 @@
           [else #f])
   )
 
-(define (nt-occurs [x : Ctx]) :  (Listof  String )
-    (map (lambda ([z : (Pairof String Ty)]) (car z))
-              (filter (lambda ([nt-ty : (Pairof String Ty)])
+(define (nt-occurs [x : Ctx]) :  (Listof  Natural )
+    (map (lambda ([z : (Pairof Natural Ty)]) (car z))
+              (filter (lambda ([nt-ty : (Pairof Natural Ty)])
                               (match nt-ty
                                   [(cons s (Ty _ (ExHs h))) (member s h)]
                                   [_ #f]) )
@@ -518,6 +616,17 @@
                 (hash->list (Ctx-env x))))
   )
 
+(define (unsolved-nts [x : Ctx]) : (Listof Natural)
+      (foldr (lambda ([a : (Pairof Natural Boolean)] [b : (Listof String)])
+                     (if (not (cdr a)) (cons (car a) b) b))
+             (list)
+            (map (lambda ([z : (Pairof Natural Ty)])
+                         (cons (car z) (isntancied-ty? (cdr z))))
+                           
+                (hash->list (Ctx-env x))))
+  )
+
+
 (define (satisfied? [x : Ctx]) : Boolean
               (and (all-nt-solved? x)
                    (isntancied-ty? (get-start-exp-ty x))
@@ -528,14 +637,81 @@
 (define (unsolved-pe [x : Ctx]) : (Listof PE)
       (foldr (lambda ([ c : Constr] [xs : (Listof PE)])
                      (cond
-                       [(hash-has-key? (Ctx-vsrc x) (Constr-uid c)) (cons (hash-ref (Ctx-vsrc x) (Constr-uid c))
-                                                                          xs)]
+                       [(hash-has-key? (Ctx-vsrc x) (Constr-uid c))
+                         (cons  (hash-ref (Ctx-vsrc x) (Constr-uid c))
+                               xs)]
                        [else xs]))
              (list)
              (Ctx-clist x))
   )
 
 (define (get-errors [x : Ctx] ) : TyErr
-        (TyErr (nt-occurs x) (unsolved-pe x))
+  (let ([t (reverse-names x)])
+        (TyErr (map (lambda (y) (hash-ref (Ctx-nt-names x) y)) (nt-occurs x))
+               (set-union (map (lambda (z) (hash-ref t z)) (unsolved-nts x))
+                          (unsolved-pe x))))
   )
 
+
+(define (tyEx->string [t : TyEx]) : String
+     (match t
+       [(ExHs hs) (string-join	 hs "," #:before-first "[" #:after-last "]")]
+       [(Exb n)   (~a n)]
+       [(ExVar n) (string-append "V#" (~a n))]
+       [(ExU l r) (string-append (tyEx->string l) "∪" (tyEx->string r))]
+       [(ExAnd l r) (string-append (tyEx->string l) "∧" (tyEx->string r))]
+       [(ExOr l r) (string-append (tyEx->string l)  "∨" (tyEx->string r))]
+       [(ExNot e) (string-append "¬" (tyEx->string e))]
+       [(ExImp e h1 h2) (string-append (tyEx->string e) "=>" (tyEx->string h1) " : " (tyEx->string h2))]
+      ; ['() "(:-0)"]
+      )
+  )
+
+;(struct Constr ([uid : Natural] [lft : TyEx] [rght : TyEx]) #:transparent)
+(define (constr->string [c : Constr]) : String
+    (string-append (number->string (Constr-uid c))
+                   " : "
+                   (tyEx->string   (Constr-lft c))
+                   " = "
+                   (tyEx->string   (Constr-rght c)))
+  )
+(define (constr->string-hsh [tab : (Hash Natural String)] [c : Constr]) : String
+    (string-append (number->string (Constr-uid c))
+                   " : "
+                   (tyEx->string   (reverse-name-TyEx tab (Constr-lft c)))
+                   " = "
+                   (tyEx->string   (reverse-name-TyEx tab (Constr-rght c))))
+  )
+
+(define (ty->string [t : Ty])
+     (string-append "<" (tyEx->string (Ty-nul? t)) ", " (tyEx->string (Ty-headset t) ) ">")
+  )
+
+(define (ty->string-hsh [tab : (Hash Natural String)] [t : Ty])
+     (string-append "<" (tyEx->string (Ty-nul? t)) ", "
+                    (tyEx->string (reverse-name-TyEx tab (Ty-headset t))) ">")
+  )
+
+(define (ctx-tyEnv-toString [c : ctx]) : String
+      (let ([t (reverse-names c)])
+           (map (lambda (x)
+                (string-append (hash-ref t (car x))
+                               "::"
+                               (ty->string-hsh t (cdr x)) "\n"))
+                (hash->list (Ctx-env c))))
+  )
+
+(define (ctx-constr-toString [c : ctx]) : String
+      (let ([t (reverse-names c)])
+           (map (lambda ([x : Constr]) : String
+                (string-append (constr->string-hsh t x) "\n"))
+                (Ctx-clist c)))
+  )
+
+(define (ctx-subst-toString [c : ctx]) : String
+      (let ([t (reverse-names c)])
+           (string-join (hash-map (Ctx-subs c)
+                                  (lambda ([n : Natural] [tex : TyEx]) : String
+                                          (string-append "V#" (~a n) " :=> " (tyEx->string (reverse-name-TyEx t tex)))))
+                                          " \n"))
+  )

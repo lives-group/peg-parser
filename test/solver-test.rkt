@@ -37,11 +37,11 @@
           (translate-ex (GPEG-start gpeg)) )
   )
 
-(define-property accept-well-typed ([peg  (gen:peg 3 3 3)])
+(define-property accept-well-typed ([peg  (gen:peg 3 5 4)])
     (satisfied? (solve-ctx (peg->constraints (translate peg))))
   )
 
-(define-property reject-ill-typed ([peg  (gen:ill-peg 3 3 3)])
+(define-property reject-ill-typed ([peg  (gen:ill-peg 3 5 4)])
     (let ([p (translate peg) ])
         (not (satisfied? (solve-ctx (peg->constraints p))))
     )

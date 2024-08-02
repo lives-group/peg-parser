@@ -304,6 +304,7 @@
 (define (pe->err-string [e : PE]) : String
       (match e
         [(Any k)        (string-append "at " (srcloc->string k) ": " (pe->string e))]
+        [(Var k _ _)    (string-append "at " (srcloc->string k) ": " (pe->string e))]
         [(Eps k)        (string-append "at " (srcloc->string k) ": " (pe->string e))]
         [(Sym k _)      (string-append "at " (srcloc->string k) ": " (pe->string e))]
         [(Rng k _ _)    (string-append "at " (srcloc->string k) ": " (pe->string e))]

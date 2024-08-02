@@ -1,11 +1,11 @@
-#lang peg-parser
+#lang peg-parser/debug/outputCTX
 
 value <-- object / array / string / number / ^T / ^F / ^NLL;
 object <-- ~AC (pair (COMMA pair)*)? ~FC;
 pair   <-- ^string ~COLON ^value;
 array  <-- ~AH (^value (COMMA ^value)*)? ~FH;
 
-W      <-- [' ','\n','\t']*;
+W    <-- [' ','\n','\t']*;
 AC   <-- "{" ~W;
 FC   <-- "}" ~W;
 AH   <-- "[" ~W;

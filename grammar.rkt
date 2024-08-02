@@ -10,7 +10,7 @@
 
 (define (string->tree p s)
   (match s
-    ['() (Eps) ]
+    ['() (Eps (src p)) ]
     [(cons c '()) (Sym (src p) c)]
     [(cons c s1) (Cat (src p)
                       (Sym (src p) c)

@@ -1,4 +1,5 @@
 #lang peg-parser
 
-A <-- 'a' A 'a' / epsilon ;
-start: A!.
+A <-- '(' B* ')' A / 'f' ;
+B <-- 'b' / ! 'c';
+start: A !.

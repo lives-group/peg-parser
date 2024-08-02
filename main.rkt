@@ -1,6 +1,6 @@
 #lang racket
 (module reader racket
-  (require peg-parser/reader)
+  (require "reader.rkt")
   (provide read read-syntax))
 
 

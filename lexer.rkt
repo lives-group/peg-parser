@@ -67,14 +67,18 @@
    [(:seq #\' #\\ #\t #\')  (token-CHAR "\t")]
    [(:seq #\' #\\ #\r #\')  (token-CHAR "\r")]
    [(:seq #\' #\\ #\b #\')  (token-CHAR "\b")]
-   ;[(:seq #\' #\\ #\" #\')  (token-CHAR "\"")]
-   ;[(:seq #\' #\\ #\' #\')  (token-CHAR "'")]
+   [(:seq #\' #\\ #\" #\')  (token-CHAR "\"")]
+   [(:seq #\' #\\ #\' #\')  (token-CHAR "'")]
+
+   [(:seq #\' #\\ (:+ numeric) #\')  (token-CHAR  (let* ([s lexeme]
+                                                         [n (string-length s)])
+                                                         (string (integer->char
+                                                                  (string->number (substring s 2 (- n 1)))))))]
    [(:seq #\' #\\ any-char #\')  (token-CHAR (let* ([s lexeme]
                                                     [n (string-length s)])
                                                     (substring s 2 (- n 1))))] 
-   [(:seq #\' #\\ (:+ numeric) #\')  (token-CHAR  (let* ([s lexeme]
-                                                         [n (string-length s)])
-                                                         (integer->char (string->number (substring s 2 (- n 1))))))]
+   [(:seq (:seq #\% #\%) (:* (:~ #\012 #\015)))
+    (return-without-pos (next-token input-port))]
 ))
 
 (provide value-tokens op-tokens next-token)

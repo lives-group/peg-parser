@@ -1,0 +1,102 @@
+#lang racket
+
+(require "../examples/JavaPEG.rkt"
+         "JavaYaccParser/syntax/parser.ss"
+         racket/path
+         text-table)
+
+(define (list-files-ext fext [path (current-directory)] )
+  (map (lambda (b) (build-path path b))
+       (filter (lambda (fn) (let ([ext (path-get-extension fn)])
+                                 (and ext (bytes=?  ext fext))))
+               (directory-list path)))
+)
+
+(define (safe-run-parser prs in)
+         (with-handlers ([exn:fail? (lambda (x) 'fail)])
+                        (prs in))
+  )
+
+(define (run-timed proc f)
+            (call-with-values (lambda () (time-apply (lambda (z) (safe-run-parser proc z)) (list f))) 
+                              (lambda (a b c d) (if (equal? 'fail (car a)) 'fail b))) 
+  )
+
+(define (run-all p listOfFiles)
+       (map (lambda (f) (run-timed p f) ) listOfFiles)
+  )
+
+(define (run-tests-for p numRep listOfFiles tab)
+      (cond
+        [(<= numRep 0) tab]
+        [(> numRep 0) (run-tests-for p
+                                     (- numRep 1)
+                                     listOfFiles
+                                     (map (lambda (x y) (append x (list y))) tab (run-all p listOfFiles))  )]
+  )
+)
+(define (run-dry proc l)
+   (map (lambda (e)
+          (begin
+            (display "processing: ")
+            (display e)
+            (display "[")
+            (if (equal? (safe-run-parser proc e) 'fail)
+                (displayln "FAIL]")
+                (displayln " OK ]"))))
+            l)
+  )
+
+
+(define (row_mean row)
+    (let ([datarow (drop row 2)])
+      (if (member 'fail datarow)
+          "-"
+      (~r #:precision '(= 2)  (exact->inexact (/ (foldr + 0 datarow) (length datarow)) )))
+  ))
+
+(define (mkLabels n)
+       (append (list "File" "Size(bytes)" )
+               (build-list n (lambda (z) (string-append "Run" (~a z) " (ms)")))
+               (list "mean (ms)"))
+  )
+  
+(define (run-experiment p numRep path [HTMLfileName "results.html"] [texFileName "results.tex"])
+     (let* ([fs (list-files-ext #".java" path)]
+            [stab (sort (map (lambda (f) (list f (file-size f) )) fs)
+                        (lambda (a b) (< (cadr a) (cadr b))))]
+            [tb_res (run-tests-for p numRep fs stab)]
+            [tb_means (map (lambda (a b) (append a (list b)))
+                           tb_res
+                           (map row_mean tb_res))]
+            [tb_labels (cons (mkLabels numRep) tb_means)])
+           (saveTable  tb_labels HTMLfileName texFileName))
+)
+
+(define (teste path)
+     (let* ([fs (list-files-ext #".java" path)]
+            [tab (map (lambda (f) (list f (file-size f) )) fs)])
+           (sort tab (lambda (a b) (< (cadr a) (cadr b)))))
+)
+
+(define (saveTable tab [HTMLfileName "results.html"] [texFileName "results.tex"])
+     (let ([fhtml (open-output-file HTMLfileName #:mode 'text #:exists 'replace)]
+           [ftex (open-output-file texFileName #:mode 'text #:exists 'replace)]
+           )
+      (begin (display (table->string tab
+                       #:border-style
+                              '(("<table>" "" "" "")
+                               ("<tr><td> " " " " </td><td> "  " </td></tr>")
+                               ("" "" "" "")
+                               ("</table>" "" "" ""))
+                       #:framed? #t
+                       #:row-sep? #f) fhtml)
+             (close-output-port fhtml)
+             (display (table->string tab #:border-style 'latex ) ftex)
+             (close-output-port ftex)
+            )
+  )
+ )
+;(run-experiment JavaPEG:parse-file 5 "teste" "test.html" "test.tex")
+;(run-experiment JavaPEG:parse-file 5 "java14srcs" "PEG_res.html" "PEG_res.tex")
+(run-experiment parse-file 5 "java14srcs" "YACC.html" "YACC.tex")

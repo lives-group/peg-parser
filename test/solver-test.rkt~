@@ -10,7 +10,8 @@
          peg-gen/peg-gen-syntax
          peg-gen/peg-gen-types)
 
-
+(provide  accept-well-typed
+          reject-ill-typed)
 
 (define l0 (SrcLoc 0 0))
 (setSynFactory PEGStructF)
@@ -19,7 +20,7 @@
      (match gpeg
         [(GEps )        (Eps l0)]
         [(GLit c)       (Sym l0 (integer->char (+ 65 c)))]
-        [(GVar s)       (Var l0 (symbol->string s))]
+        [(GVar s)       (Var l0 #f (symbol->string s))]
         [(GSeq p1 p2)   (Cat l0 (translate-ex p1) (translate-ex p2))]
         [(GAlt p1 p2)   (Alt l0 (translate-ex p1) (translate-ex p2))]
         [(GKle p)       (Rep l0 (translate-ex p))]
@@ -36,15 +37,21 @@
           (translate-ex (GPEG-start gpeg)) )
   )
 
-(define-property aceept-well-typed ([peg  (gen:peg 3 5 3)])
-    ;(display (translate peg))
+(define-property accept-well-typed ([peg  (gen:peg 3 3 3)])
     (satisfied? (solve-ctx (peg->constraints (translate peg))))
   )
 
-(define-property reject-ill-typed ([peg  (gen:ill-peg 3 5 3)])
-    ;(display (translate peg))
-    (not (satisfied? (solve-ctx (peg->constraints (translate peg)))))
+(define-property reject-ill-typed ([peg  (gen:ill-peg 3 5 4)])
+    (let ([p (translate peg) ])
+        (not (satisfied? (solve-ctx (peg->constraints p))))
+    )
   )
+
+
+
+;
+; Some interesting counter-examples
+;
 
 (define peg-f1 (GPEG (make-immutable-hash (list (cons 'A (GAlt (GSeq (GLit 0) (GLit 0))
                                                                (GSeq (GEps) (GLit 0)) ))))
@@ -53,6 +60,7 @@
                              (list (cons 'A (TyPEG #f '()) )))
 ; This one was a foll error on mkSeqConstraint 
   )
+
 
 (define peg-f2
   (GPEG (make-immutable-hash (list (cons 'A  (GSeq (GAlt (GLit 3) (GLit 3))
@@ -78,3 +86,35 @@
               (cons 'O  (TyPEG #f '(T)))
               (cons 'Q 'ill-typed)))
  )
+
+;V<-(ϵ/ϵ)V/V/V
+;T<-(V/'A')X'C'/!'C'!'C'
+;X<-!(T'D''A''C')
+;('A'/ϵ)ϵ'B'/!'B''C''A'
+(define peg-ill2
+   (GPEG (make-immutable-hash (list (cons 'V (GAlt (GAlt (GSeq (GAlt (GEps) (GEps)) (GVar 'V) )
+                                                   (GVar 'V))
+                                                   (GVar 'V)))
+                                    (cons 'T (GAlt (GSeq (GSeq (GAlt (GVar 'V) (GLit 0)) (GVar 'X)) (GLit 2))
+                                                   (GSeq (GNot (GLit 2)) (GNot (GLit 2)))))
+                                    (cons 'X (GNot (GSeq (GSeq (GSeq (GVar 'T) (GLit 3)) (GLit 0)) (GLit 2))))
+                               ))
+         (GAlt (GSeq (GSeq (GAlt (GLit 0) (GEps)) (GEps)) (GLit 1))
+               (GSeq (GSeq (GNot (GLit 1)) (GLit 2)) (GLit 0)))
+         (list))
+)
+
+;V<-ϵV
+;T<-(V/'A')X/!'C'
+;X<-!(T'D')
+;('A'/ϵ)'B'/!'B'
+(define peg-ill2-s
+   (GPEG (make-immutable-hash (list (cons 'V   (GSeq (GEps) (GVar 'V)))
+                                    (cons 'T (GAlt (GSeq (GAlt (GVar 'V) (GLit 0)) (GVar 'X))      
+                                                   (GNot (GLit 2)) ))
+                                    (cons 'X (GNot  (GSeq (GVar 'T) (GLit 3))) )
+                               ))
+         (GAlt (GSeq (GAlt (GLit 0) (GEps)) (GLit 1))
+               (GNot (GLit 1)) )
+         (list))
+)

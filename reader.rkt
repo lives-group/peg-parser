@@ -20,14 +20,14 @@
                            (string-join l ", ") )
   )
 (define (msg-ty-erros l)
-  (string-append "The following expressions do not type: "
-                 (string-join (map pe->err-string l) "\n")))
+  (string-append* "The following expressions do not type:\n "
+                   (map (lambda (s) (string-append "   " (pe->err-string s) "\n")) l)))
 
 (define (error-msgs pl)
   (match pl
-    [(TyErr '() ty) (error (msg-ty-erros ty))]
-    [(TyErr lp '()) (error (msg-loops lp))]
-    [(TyErr lp ty) (error (string-append (msg-loops lp) "\n" (msg-ty-erros ty)))])
+    [(TyErr '() ty) (error  (msg-ty-erros ty))]
+    [(TyErr lp '()) (error  (msg-loops lp))]
+    [(TyErr lp ty) (error  (string-append (msg-loops lp) "\n" (msg-ty-erros ty)))])
   
   )
 
@@ -67,13 +67,17 @@
                            (peg-parse-from grm i (open-input-string s)))
             
                        (define (parse-file fname)
-                          (let ([s (open-input-file fname #:mode 'text)])
-                               (peg-parse grm s))
+                          (let* ([s (open-input-file fname #:mode 'text)]
+                                 [ast (peg-parse grm s)])
+                                 ( close-input-port  fname)
+                               )
+                                 
                        )
             
                        (define (parse-file-from-nt ntname fname)
-                               (let ([s (open-input-file fname #:mode 'text)])
-                                    (parse-from-nt grm ntname s))
+                               (let* ([s (open-input-file fname #:mode 'text)]
+                                     [ast (parse-from-nt grm ntname s)])
+                                    ( close-input-port  fname))
                        )
                        
                        (define (list-grammar)

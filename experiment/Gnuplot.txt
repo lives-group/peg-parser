@@ -1,0 +1,5 @@
+set title "Parsing Time Comparasion"
+set xlabel "Size (bytes)"
+set ylabel "Time (ms)"
+set grid
+plot "RuntTimeTests.txt" title ""
